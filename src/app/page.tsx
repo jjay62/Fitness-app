@@ -252,35 +252,28 @@ export default function Dashboard() {
       </div>
 
       <div className="glass-panel">
-        <div className="flex justify-between items-center gap-3">
+        <div className="flex justify-between items-start gap-3">
           <div className="min-w-0">
             <h3 className="flex items-center gap-2 text-emerald-400"><Activity size={20} /> Activity</h3>
             <p className="text-3xl font-bold my-2">{steps.toLocaleString()}</p>
             <p className="text-sm text-gray-400">Steps today (Google Fit)</p>
           </div>
-          <div className="text-right shrink-0 flex flex-col items-end gap-2">
-            <button
-              type="button"
-              title="Refresh steps from Google Fit"
-              disabled={stepsRefreshing}
-              onClick={async () => {
-                setStepsRefreshing(true);
-                try {
-                  await refreshFitSteps();
-                } finally {
-                  setStepsRefreshing(false);
-                }
-              }}
-              className="p-2 rounded-xl bg-white/5 border border-white/10 text-gray-400 hover:text-emerald-400 transition-colors disabled:opacity-50"
-            >
-              <RefreshCw size={18} className={stepsRefreshing ? 'animate-spin' : ''} />
-            </button>
-            <p className="text-2xl font-semibold text-amber-500">{totalBurnedKcal} kcal</p>
-            <p className="text-sm text-gray-400">Est. burned total</p>
-            <p className="text-[10px] text-gray-500 max-w-[140px] text-right leading-tight">
-              {stepsKcalBurned} steps + {planKcalBurned} plan
-            </p>
-          </div>
+          <button
+            type="button"
+            title="Refresh steps from Google Fit"
+            disabled={stepsRefreshing}
+            onClick={async () => {
+              setStepsRefreshing(true);
+              try {
+                await refreshFitSteps();
+              } finally {
+                setStepsRefreshing(false);
+              }
+            }}
+            className="p-2 rounded-xl bg-white/5 border border-white/10 text-gray-400 hover:text-emerald-400 transition-colors disabled:opacity-50 shrink-0"
+          >
+            <RefreshCw size={18} className={stepsRefreshing ? 'animate-spin' : ''} />
+          </button>
         </div>
       </div>
 
