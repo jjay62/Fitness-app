@@ -1,32 +1,77 @@
 @import "tailwindcss";
 
 @theme {
-  --color-background: #0b0f19;
-  --color-foreground: #f3f4f6;
+  --color-background: var(--page-bg);
+  --color-foreground: var(--page-fg);
+}
+
+/* Light (default for :root when .dark absent) */
+:root {
+  --page-bg: #f1f5f9;
+  --page-fg: #0f172a;
+  --glass-bg: rgba(15, 23, 42, 0.04);
+  --glass-border: rgba(15, 23, 42, 0.12);
+  --nav-bg: rgba(241, 245, 249, 0.92);
+  --nav-border: rgba(15, 23, 42, 0.08);
+  --input-bg: rgba(15, 23, 42, 0.06);
+  --muted: #64748b;
+  --body-gradient: radial-gradient(circle at top right, #e2e8f0, #f1f5f9 50%, #e2e8f0);
+  --slider-thumb-border: rgba(15, 23, 42, 0.25);
+  --title-gradient-from: #0f172a;
+  --title-gradient-to: #4338ca;
+}
+
+.dark {
+  --page-bg: #0b0f19;
+  --page-fg: #f3f4f6;
+  --glass-bg: rgba(255, 255, 255, 0.05);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --nav-bg: rgba(11, 15, 25, 0.85);
+  --nav-border: rgba(255, 255, 255, 0.1);
+  --input-bg: rgba(0, 0, 0, 0.3);
+  --muted: #9ca3af;
+  --body-gradient: radial-gradient(circle at top right, #1f2937, #0b0f19 50%, #000000);
+  --slider-thumb-border: rgba(255, 255, 255, 0.3);
+  --title-gradient-from: #ffffff;
+  --title-gradient-to: #a5b4fc;
 }
 
 @layer base {
-  :root {
-    --glass-bg: rgba(255, 255, 255, 0.05);
-    --glass-border: rgba(255, 255, 255, 0.1);
-  }
-
   body {
-    background-color: var(--color-background);
-    background-image: radial-gradient(circle at top right, #1f2937, #0b0f19 50%, #000000);
+    background-color: var(--page-bg);
+    background-image: var(--body-gradient);
     background-attachment: fixed;
-    color: var(--color-foreground);
+    color: var(--page-fg);
     min-height: 100vh;
+  }
+}
+
+@layer utilities {
+  .text-foreground {
+    color: var(--page-fg);
+  }
+  .text-muted {
+    color: var(--muted);
   }
 }
 
 @layer components {
   .glass-panel {
-    @apply bg-white/5 border border-white/10 shadow-xl backdrop-blur-md rounded-2xl p-4 transition-all duration-300;
+    background-color: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    @apply shadow-xl backdrop-blur-md rounded-2xl p-4 transition-all duration-300;
   }
-  
+
   .glass-panel:hover {
-    @apply border-white/20 -translate-y-0.5;
+    @apply -translate-y-0.5;
+  }
+
+  html:not(.dark) .glass-panel:hover {
+    border-color: rgba(15, 23, 42, 0.22);
+  }
+
+  .dark .glass-panel:hover {
+    border-color: rgba(255, 255, 255, 0.22);
   }
 
   .btn-primary {
@@ -42,38 +87,56 @@
   }
 
   .btn-secondary {
-    @apply bg-white/5 text-white font-medium py-3 px-6 rounded-full border border-white/10 transition-all duration-200;
+    background-color: var(--glass-bg);
+    color: var(--page-fg);
+    @apply font-medium py-3 px-6 rounded-full border transition-all duration-200;
+    border-color: var(--glass-border);
   }
 
   .btn-secondary:hover {
-    @apply bg-white/10;
+    @apply bg-blue-500/10;
   }
 
   .input-field {
-    @apply w-full bg-black/30 border border-white/10 text-white px-4 py-3 rounded-xl text-base transition-all duration-300 outline-none;
+    width: 100%;
+    background-color: var(--input-bg);
+    border: 1px solid var(--glass-border);
+    color: var(--page-fg);
+    @apply px-4 py-3 rounded-xl text-base transition-all duration-300 outline-none;
   }
 
   .input-field:focus {
     @apply border-blue-500 ring-2 ring-blue-500/50;
   }
-  
+
   .page-title {
-    @apply text-3xl font-bold bg-gradient-to-br from-white to-indigo-300 bg-clip-text text-transparent mb-0;
+    @apply text-3xl font-bold mb-0 bg-clip-text text-transparent;
+    background-image: linear-gradient(to bottom right, var(--title-gradient-from), var(--title-gradient-to));
   }
 
   .custom-slider {
-    @apply appearance-none h-1.5 rounded-full bg-white/10 outline-none transition-all duration-300;
+    @apply appearance-none h-1.5 rounded-full outline-none transition-all duration-300;
+    background-color: color-mix(in srgb, var(--page-fg) 12%, transparent);
   }
 
   .custom-slider::-webkit-slider-thumb {
-    @apply appearance-none w-5 h-5 rounded-full cursor-pointer border-2 border-white shadow-[0_0_10px_rgba(255,255,255,0.3)] transition-all duration-300;
+    @apply appearance-none w-5 h-5 rounded-full cursor-pointer border-2 transition-all duration-300;
+    border-color: var(--slider-thumb-border);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--page-fg) 20%, transparent);
   }
 
-  /* Slider Colors */
-  .slider-blue::-webkit-slider-thumb { @apply bg-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.6)]; }
-  .slider-emerald::-webkit-slider-thumb { @apply bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.6)]; }
-  .slider-amber::-webkit-slider-thumb { @apply bg-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.6)]; }
-  .slider-violet::-webkit-slider-thumb { @apply bg-violet-500 shadow-[0_0_12px_rgba(139,92,246,0.6)]; }
+  .slider-blue::-webkit-slider-thumb {
+    @apply bg-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.6)];
+  }
+  .slider-emerald::-webkit-slider-thumb {
+    @apply bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.6)];
+  }
+  .slider-amber::-webkit-slider-thumb {
+    @apply bg-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.6)];
+  }
+  .slider-violet::-webkit-slider-thumb {
+    @apply bg-violet-500 shadow-[0_0_12px_rgba(139,92,246,0.6)];
+  }
 }
 
 html {

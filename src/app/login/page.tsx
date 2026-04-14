@@ -5,8 +5,10 @@ import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, User, Camera, Loader2, LogIn, UserPlus } from 'lucide-react';
+import { useLocale } from '@/context/LocaleContext';
 
 export default function LoginPage() {
+  const { t } = useLocale();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -41,7 +43,7 @@ export default function LoginPage() {
         router.push('/');
       } else {
         // Sign Up
-        if (!username) throw new Error('Username is required');
+        if (!username) throw new Error(t('login.usernameRequired'));
 
         const { data: authData, error: authError } = await supabase.auth.signUp({
           email,
@@ -87,9 +89,9 @@ export default function LoginPage() {
         }
       }
     } catch (err: any) {
-      setError(err.message === 'Email not confirmed'
-        ? 'Confirm your email from your inbox, then try signing in again.'
-        : err.message);
+      setError(
+        err.message === 'Email not confirmed' ? t('login.emailConfirm') : err.message
+      );
     } finally {
       setLoading(false);
     }
@@ -104,10 +106,10 @@ export default function LoginPage() {
       >
         <div className="text-center mb-8">
           <h1 className="page-title text-4xl mb-2">
-            {isLogin ? 'Welcome Back' : 'Create Account'}
+            {isLogin ? t('login.welcomeBack') : t('login.createAccount')}
           </h1>
-          <p className="text-gray-400">
-            {isLogin ? 'Sign in to continue your progress' : 'Join the AI Diet revolution'}
+          <p className="text-muted">
+            {isLogin ? t('login.signInSubtitle') : t('login.joinSubtitle')}
           </p>
         </div>
 
@@ -133,7 +135,7 @@ export default function LoginPage() {
                       <Camera size={24} className="text-gray-400" />
                     )}
                     <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                      <span className="text-[10px] text-white font-medium uppercase">Edit</span>
+                      <span className="text-[10px] text-foreground font-medium uppercase">{t('login.edit')}</span>
                     </div>
                   </div>
                   <input
@@ -143,7 +145,7 @@ export default function LoginPage() {
                     onChange={handleAvatarChange}
                     accept="image/*"
                   />
-                  <p className="text-xs text-gray-500">Profile Photo (Optional)</p>
+                  <p className="text-xs text-muted">{t('login.profilePhotoOptional')}</p>
                 </div>
 
                 <div className="relative">
@@ -151,7 +153,7 @@ export default function LoginPage() {
                   <input
                     type="text"
                     className="input-field pl-12"
-                    placeholder="Username"
+                    placeholder={t('login.username')}
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     required={!isLogin}
@@ -166,7 +168,7 @@ export default function LoginPage() {
             <input
               type="email"
               className="input-field pl-12"
-              placeholder="Email Address"
+              placeholder={t('login.email')}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -178,7 +180,7 @@ export default function LoginPage() {
             <input
               type="password"
               className="input-field pl-12"
-              placeholder="Password"
+              placeholder={t('login.password')}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -205,20 +207,20 @@ export default function LoginPage() {
             ) : (
               <span className="flex items-center gap-2">
                 {isLogin ? <LogIn size={18} /> : <UserPlus size={18} />}
-                {isLogin ? 'Sign In' : 'Sign Up'}
+                {isLogin ? t('login.signIn') : t('login.signUp')}
               </span>
             )}
           </button>
         </form>
 
-        <div className="mt-8 pt-6 border-t border-white/10 text-center">
-          <p className="text-gray-400 text-sm">
-            {isLogin ? "Don't have an account?" : "Already have an account?"}
+        <div className="mt-8 pt-6 border-t border-[color:var(--glass-border)] text-center">
+          <p className="text-muted text-sm">
+            {isLogin ? t('login.noAccount') : t('login.hasAccount')}
             <button
-              className="text-blue-400 font-semibold ml-2 hover:underline"
+              className="text-blue-500 font-semibold ml-2 hover:underline"
               onClick={() => setIsLogin(!isLogin)}
             >
-              {isLogin ? 'Create one now' : 'Sign in here'}
+              {isLogin ? t('login.createNow') : t('login.signInHere')}
             </button>
           </p>
         </div>

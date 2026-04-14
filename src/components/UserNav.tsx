@@ -3,17 +3,19 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
+import { useLocale } from '../context/LocaleContext';
 import { LogOut, User as UserIcon } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function UserNav() {
   const { user, signOut } = useAuth();
   const { profile } = useApp();
+  const { t } = useLocale();
   if (!user) return null;
 
   // Fallback logic for metadata (Social logins)
   const metadata = user.user_metadata || {};
-  const displayName = profile?.username || metadata.username || metadata.full_name || metadata.name || 'New User';
+  const displayName = profile?.username || metadata.username || metadata.full_name || metadata.name || t('userNav.newUser');
   const displayAvatar = profile?.avatar_url || metadata.avatar_url || metadata.picture;
 
   return (
@@ -27,10 +29,10 @@ export default function UserNav() {
           )}
         </div>
         <div>
-          <h3 className="text-white font-bold leading-none mb-1">
+          <h3 className="text-foreground font-bold leading-none mb-1">
             {displayName}
           </h3>
-          <p className="text-[10px] text-gray-500 font-medium lowercase">
+          <p className="text-[10px] text-muted font-medium lowercase">
             {user.email}
           </p>
         </div>
@@ -39,7 +41,7 @@ export default function UserNav() {
       <button
         onClick={() => signOut()}
         className="p-2 bg-white/5 border border-white/10 rounded-xl text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-all"
-        title="Sign Out"
+        title={t('userNav.signOut')}
       >
         <LogOut size={18} />
       </button>

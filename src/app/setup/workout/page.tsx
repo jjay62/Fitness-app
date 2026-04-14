@@ -78,27 +78,28 @@ export default function WorkoutSetupPage() {
       });
       
       const prompt = `
-        Act as a world-class Strength & Conditioning Coach. 
-        Create a 7-day personalized weekly agenda (Monday-Sunday).
-        
-        User context:
-        - Goal: ${profile.goal}
-        - Gym sessions per week: ${frequency}
-        - Session duration: ${duration} hours
-        - Specific Gym Days: ${selectedDays.join(', ')}
-        - Cardio Preference: ${cardioPreference}
-        
-        RULES:
-        1. On Gym Days (${selectedDays.join(', ')}), provide a specific workout title and 3-4 key focus points.
-        2. On non-gym days, provide a clear cardio or movement goal based on "${cardioPreference}". 
-           Example: "Run 5km" or "30 mins Stairmaster" or "10k steps".
-        3. The tone should be motivating and professional.
-        
-        Output MUST be pure JSON format exactly like this (No markdown, no talk):
-        {
-          "Monday": { "type": "Gym/Cardio/Rest", "activity": "Title", "details": "Focus points or duration" },
-          ... (for all 7 days)
-        }
+Act as a world-class Strength & Conditioning Coach.
+Create a 7-day personalized weekly agenda (Monday-Sunday).
+
+User context:
+- Goal: ${profile.goal}
+- Gym sessions per week: ${frequency}
+- Session duration: ${duration} hours
+- Specific Gym Days: ${selectedDays.join(', ')}
+- Cardio Preference: ${cardioPreference}
+
+RULES:
+1. Gym Days (${selectedDays.join(', ')}): Provide a specific session title, training split type (e.g. Push/Pull/Legs or Full Body), and 3-4 key focus exercises or movement patterns.
+2. Non-gym days: Assign low-intensity recovery activity matching "${cardioPreference}". Keep it specific (e.g. "30-min walk targeting 8,000 steps" not just "rest").
+3. Never assign two consecutive high-intensity days.
+4. One full rest day per week minimum.
+5. Tone: motivating, direct, professional.
+
+Output MUST be pure JSON format exactly like this (No markdown, no talk):
+{
+  "Monday": { "type": "Gym/Cardio/Rest", "activity": "Title", "details": "Focus points or duration" },
+  ... (for all 7 days)
+}
       `;
 
       const response = await ai.models.generateContent({

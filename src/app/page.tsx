@@ -10,6 +10,7 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import UserNav from '../components/UserNav';
 import { ProfileDataError } from '../components/ProfileDataError';
+import { useLocale } from '../context/LocaleContext';
 import {
   isGymType,
   estimateWorkoutPlanKcalBurn,
@@ -70,9 +71,9 @@ const CircularProgress = ({
       </div>
       <div className="text-center max-w-[88px]">
         <p className="m-0 text-xs font-semibold">{value} / {max}</p>
-        <p className="m-0 text-[10px] text-gray-400">{label}</p>
+        <p className="m-0 text-[10px] text-muted">{label}</p>
         {sublabel ? (
-          <p className="m-0 mt-0.5 text-[9px] text-gray-500 leading-tight">{sublabel}</p>
+          <p className="m-0 mt-0.5 text-[9px] text-muted leading-tight">{sublabel}</p>
         ) : null}
       </div>
     </div>
@@ -82,6 +83,7 @@ const CircularProgress = ({
 export default function Dashboard() {
   const { user, loading: authLoading } = useAuth();
   const { profile, dailyGoals, dailyLogs, steps, dataLoading, profileFetchError, refetchUserData, removeFoodFromLog, refreshFitSteps } = useApp();
+  const { t } = useLocale();
   const [stepsRefreshing, setStepsRefreshing] = useState(false);
   const [agendaRev, setAgendaRev] = useState(0);
   const router = useRouter();
@@ -171,13 +173,15 @@ export default function Dashboard() {
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <UserNav />
 
-      <header className="flex justify-between items-center text-white">
+      <header className="flex justify-between items-center text-foreground">
         <div>
-          <h1 className="page-title text-4xl">Dashboard</h1>
-          <p className="text-gray-400 text-sm">Welcome back, {profile?.username || 'Legend'}</p>
+          <h1 className="page-title text-4xl">{t('dashboard.title')}</h1>
+          <p className="text-muted text-sm">
+            {t('dashboard.welcome', { name: profile?.username || t('dashboard.legend') })}
+          </p>
         </div>
-        <div className="bg-white/5 border border-white/10 px-4 py-2 rounded-full">
-          <span className="text-blue-400 font-semibold text-sm">Today</span>
+        <div className="bg-white/5 border border-white/10 px-4 py-2 rounded-full dark:bg-white/5">
+          <span className="text-blue-500 font-semibold text-sm">{t('dashboard.today')}</span>
         </div>
       </header>
 
@@ -190,24 +194,24 @@ export default function Dashboard() {
           <div className="flex justify-between items-start mb-3">
             <div className="flex items-center gap-2">
               <Sparkles size={18} className="text-blue-400" />
-              Today's Agenda
+              {t('dashboard.todaysAgenda')}
             </div>
             <Link 
               href="/agenda" 
-              className="text-[10px] text-gray-400 hover:text-white flex items-center gap-0.5 transition-colors group"
+              className="text-[10px] text-muted hover:text-foreground flex items-center gap-0.5 transition-colors group"
             >
-              See Full Week
+              {t('dashboard.seeFullWeek')}
               <ChevronRight size={12} className="group-hover:translate-x-0.5 transition-transform" />
             </Link>
           </div>
           <div className="flex justify-between items-start mb-3">
-            <h2 className="text-sm font-bold text-gray-400 uppercase tracking-tighter">Current Routine</h2>
+            <h2 className="text-sm font-bold text-muted uppercase tracking-tighter">{t('dashboard.currentRoutine')}</h2>
             <div
               className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${
-                todayIsGym ? 'bg-blue-500 text-white' : 'bg-white/10 text-gray-400'
+                todayIsGym ? 'bg-blue-500 text-white' : 'bg-white/10 text-muted'
               }`}
             >
-              {todayIsGym ? 'Gym' : todayPlanEntry?.type || 'Rest'}
+              {todayIsGym ? t('dashboard.gym') : todayPlanEntry?.type || t('dashboard.rest')}
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -215,12 +219,11 @@ export default function Dashboard() {
                {todayIsGym ? <Dumbbell className="text-blue-400" /> : <Flame className="text-amber-400" />}
             </div>
             <div>
-              <p className="font-bold text-white text-lg leading-tight">
-                {formatPlanDetailText(todayPlanEntry?.activity) || 'Rest Day'}
+              <p className="font-bold text-foreground text-lg leading-tight">
+                {formatPlanDetailText(todayPlanEntry?.activity) || t('dashboard.restDay')}
               </p>
-              <p className="text-xs text-gray-400 mt-1 italic line-clamp-3">
-                {formatPlanDetailText(todayPlanEntry?.details) ||
-                  'Enjoy your recovery! Stay active with steps.'}
+              <p className="text-xs text-muted mt-1 italic line-clamp-3">
+                {formatPlanDetailText(todayPlanEntry?.details) || t('dashboard.recoveryHint')}
               </p>
             </div>
           </div>
@@ -228,26 +231,54 @@ export default function Dashboard() {
       )}
 
       <div className="glass-panel">
-        <h2 className="text-xl font-semibold mb-4">Daily Goals</h2>
+        <h2 className="text-xl font-semibold mb-4">{t('dashboard.dailyGoals')}</h2>
         <div className="flex flex-wrap justify-between gap-y-6 gap-x-1 sm:gap-x-2">
-          <CircularProgress value={totalKcal} max={dailyGoals.kcal} color="#3b82f6" label="Kcal in" icon={<Flame size={20} />} />
+          <CircularProgress
+            value={totalKcal}
+            max={dailyGoals.kcal}
+            color="#3b82f6"
+            label={t('dashboard.kcalIn')}
+            icon={<Flame size={20} />}
+          />
           <CircularProgress
             value={totalBurnedKcal}
             max={burnGoalMax}
             color="#f97316"
-            label="Burned"
+            label={t('dashboard.burned')}
             icon={<Zap size={20} />}
             sublabel={
-              planSkipped ? 'steps only' : stepsOnlyCardio ? 'steps (cardio)' : 'steps + plan'
+              planSkipped
+                ? t('dashboard.subStepsOnly')
+                : stepsOnlyCardio
+                  ? t('dashboard.subStepsCardio')
+                  : t('dashboard.subStepsPlan')
             }
           />
-          <CircularProgress value={totalProtein} max={dailyGoals.protein} color="#8b5cf6" label="Protein" icon={<Dumbbell size={20} />} />
-          <CircularProgress value={totalCarbs} max={dailyGoals.carbs} color="#f59e0b" label="Carbs" icon={<Wheat size={20} />} />
-          <CircularProgress value={totalFats} max={dailyGoals.fats} color="#ef4444" label="Fats" icon={<Droplet size={20} />} />
+          <CircularProgress
+            value={totalProtein}
+            max={dailyGoals.protein}
+            color="#8b5cf6"
+            label={t('dashboard.protein')}
+            icon={<Dumbbell size={20} />}
+          />
+          <CircularProgress
+            value={totalCarbs}
+            max={dailyGoals.carbs}
+            color="#f59e0b"
+            label={t('dashboard.carbs')}
+            icon={<Wheat size={20} />}
+          />
+          <CircularProgress
+            value={totalFats}
+            max={dailyGoals.fats}
+            color="#ef4444"
+            label={t('dashboard.fats')}
+            icon={<Droplet size={20} />}
+          />
         </div>
-        <div className="mt-4 pt-4 border-t border-white/10 text-sm space-y-1">
+        <div className="mt-4 pt-4 border-t border-[color:var(--glass-border)] text-sm space-y-1">
           <p>
-            <strong>Fiber:</strong> {totalFiber}g / {dailyGoals.fiber}g
+            <strong>{t('dashboard.fiber')}:</strong> {totalFiber}g / {dailyGoals.fiber}g
           </p>
         </div>
       </div>
@@ -255,13 +286,15 @@ export default function Dashboard() {
       <div className="glass-panel">
         <div className="flex justify-between items-start gap-3">
           <div className="min-w-0">
-            <h3 className="flex items-center gap-2 text-emerald-400"><Activity size={20} /> Activity</h3>
+            <h3 className="flex items-center gap-2 text-emerald-400">
+              <Activity size={20} /> {t('dashboard.activity')}
+            </h3>
             <p className="text-3xl font-bold my-2">{steps.toLocaleString()}</p>
-            <p className="text-sm text-gray-400">Steps today</p>
+            <p className="text-sm text-muted">{t('dashboard.stepsToday')}</p>
           </div>
           <button
             type="button"
-            title="Refresh steps"
+            title={t('dashboard.refreshSteps')}
             disabled={stepsRefreshing}
             onClick={async () => {
               setStepsRefreshing(true);
@@ -279,9 +312,11 @@ export default function Dashboard() {
       </div>
 
       <div className="glass-panel">
-        <h3 className="text-lg font-semibold border-b border-white/10 pb-2 mb-3">Recent Meals</h3>
+        <h3 className="text-lg font-semibold border-b border-[color:var(--glass-border)] pb-2 mb-3">
+          {t('dashboard.recentMeals')}
+        </h3>
         {dailyLogs.length === 0 ? (
-          <p className="text-sm text-gray-400">No meals logged today. Add some from the Tracker or Library!</p>
+          <p className="text-sm text-muted">{t('dashboard.noMeals')}</p>
         ) : (
           <ul className="space-y-3">
             {dailyLogs.map((log, i) => (
@@ -290,7 +325,7 @@ export default function Dashboard() {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: i * 0.1 }}
                 key={log.id || i}
-                className="flex justify-between items-center gap-2 pb-3 border-b border-white/5 last:border-0 last:pb-0"
+                className="flex justify-between items-center gap-2 pb-3 border-b border-[color:var(--glass-border)] last:border-0 last:pb-0"
               >
                 <div className="min-w-0 flex-1">
                   <span className="block font-medium">{log.name}</span>
@@ -299,7 +334,7 @@ export default function Dashboard() {
                 <span className="font-semibold text-blue-400 shrink-0">{log.kcal} kcal</span>
                 <button
                   type="button"
-                  title="Remove meal"
+                  title={t('dashboard.removeMeal')}
                   disabled={!log.id}
                   onClick={() => log.id && void removeFoodFromLog(log.id)}
                   className="p-2 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 disabled:opacity-30 disabled:pointer-events-none shrink-0"

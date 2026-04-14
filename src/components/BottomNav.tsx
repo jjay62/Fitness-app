@@ -4,22 +4,24 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { LayoutDashboard, Camera, Book, Settings, Sparkles, Calendar, TrendingUp } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useLocale } from '../context/LocaleContext';
 
 export default function BottomNav() {
   const pathname = usePathname();
+  const { t } = useLocale();
 
   const navItems = [
-    { name: 'Home', path: '/', icon: LayoutDashboard },
-    { name: 'Agenda', path: '/agenda', icon: Calendar },
-    { name: 'Progress', path: '/progress', icon: TrendingUp },
-    { name: 'Tracker', path: '/tracker', icon: Camera },
-    { name: 'Suggest', path: '/suggestions', icon: Sparkles },
-    { name: 'Library', path: '/library', icon: Book },
-    { name: 'Settings', path: '/settings', icon: Settings },
+    { nameKey: 'nav.home' as const, path: '/', icon: LayoutDashboard },
+    { nameKey: 'nav.agenda' as const, path: '/agenda', icon: Calendar },
+    { nameKey: 'nav.progress' as const, path: '/progress', icon: TrendingUp },
+    { nameKey: 'nav.tracker' as const, path: '/tracker', icon: Camera },
+    { nameKey: 'nav.suggest' as const, path: '/suggestions', icon: Sparkles },
+    { nameKey: 'nav.library' as const, path: '/library', icon: Book },
+    { nameKey: 'nav.settings' as const, path: '/settings', icon: Settings },
   ];
 
   return (
-    <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[600px] h-20 bg-[#0b0f19]/85 backdrop-blur-xl border-t border-white/10 z-[100] pb-[env(safe-area-inset-bottom,0px)]">
+    <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[600px] h-20 bg-[var(--nav-bg)] backdrop-blur-xl border-t border-[color:var(--nav-border)] z-[100] pb-[env(safe-area-inset-bottom,0px)]">
       <div className="h-full overflow-x-auto overflow-y-hidden scrollbar-none flex items-center px-1">
         <div className="flex min-w-full justify-start sm:justify-between items-center gap-0.5 px-1 py-1">
           {navItems.map((item) => {
@@ -46,7 +48,7 @@ export default function BottomNav() {
                   animate={{ color: isActive ? '#3b82f6' : '#9ca3af' }}
                   className="text-[0.6rem] font-medium z-10 text-center leading-tight max-w-[4.25rem] truncate"
                 >
-                  {item.name}
+                  {t(item.nameKey)}
                 </motion.span>
 
                 {isActive && (

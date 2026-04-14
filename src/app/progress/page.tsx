@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useApp } from '@/context/AppContext';
 import { useRouter } from 'next/navigation';
+import { GoogleGenAI } from '@google/genai';
 import {
   Line,
   XAxis,
@@ -26,11 +27,11 @@ import {
   averageDailyKcalFromLogs,
   monthlyWeightDeltaKg,
   buildProjectionSeries,
-  narrativeForProjection,
 } from '@/utils/weightProjection';
 import { buildStrengthMuscleSeries, strengthNarrative } from '@/utils/strengthProjection';
 
 const MS_PER_MONTH = 30.44 * 24 * 60 * 60 * 1000;
+type NarrativeCopy = { outlook: string; appearance: string; benefits: string; disclaimer: string };
 
 function startOfToday(): Date {
   const d = new Date();
@@ -41,6 +42,7 @@ function startOfToday(): Date {
 export default function ProgressPage() {
   const { user, loading: authLoading } = useAuth();
   const {
+    geminiApiKey,
     profile,
     dailyGoals,
     recentMealLogs7d,
@@ -55,6 +57,8 @@ export default function ProgressPage() {
   const [horizon, setHorizon] = useState<HorizonMonths>(6);
   const [weightInput, setWeightInput] = useState('');
   const [logging, setLogging] = useState(false);
+  const [aiNarrative, setAiNarrative] = useState<NarrativeCopy | null>(null);
+  const [aiNarrativeLoading, setAiNarrativeLoading] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !dataLoading && !profileFetchError) {
@@ -113,19 +117,111 @@ export default function ProgressPage() {
     return [minM - 0.25, maxM + 0.25] as [number, number];
   }, [historyPoints, horizon]);
 
-  const endWeight = w0 + horizon * monthlyDelta;
-  const narrative = useMemo(
-    () =>
-      narrativeForProjection({
-        goal: profile.goal,
-        startKg: w0,
-        endKg: endWeight,
-        horizonMonths: horizon,
-        heightCm: parseNum(profile.height, 175),
-        usedIntakeFallback: intakeInfo.usedFallback,
-      }),
-    [profile.goal, profile.height, w0, endWeight, horizon, intakeInfo.usedFallback]
-  );
+  const roundedStartKg = Math.round(w0 * 10) / 10;
+  const roundedEndKg = Math.round((w0 + horizon * monthlyDelta) * 10) / 10;
+
+  useEffect(() => {
+    if (!geminiApiKey || authLoading || dataLoading || !profile?.is_setup_complete) {
+      return;
+    }
+    let cancelled = false;
+    setAiNarrativeLoading(true);
+
+    const recentWeights = [...weightEntries]
+      .sort((a, b) => new Date(b.logged_at).getTime() - new Date(a.logged_at).getTime())
+      .slice(0, 6)
+      .map((e) => `${new Date(e.logged_at).toLocaleDateString()}: ${e.weight_kg}kg`)
+      .join(', ');
+
+    const prompt = `
+You are a realistic fitness and nutrition coach.
+Write a concise and practical 6-month progress narrative for this user.
+Do NOT show formulas, equations, or step-by-step calculations.
+Avoid fake precision and avoid overconfidence.
+
+Return pure JSON only:
+{"outlook":"","appearance":"","benefits":"","disclaimer":""}
+
+User profile:
+- Goal: ${profile.goal || 'maintain'}
+- Gender: ${profile.gender || 'unspecified'}
+- Age: ${profile.age || 'unknown'}
+- Height cm: ${profile.height || 'unknown'}
+- Current weight kg: ${roundedStartKg}
+- Estimated 6-month weight range center: ${roundedEndKg}
+- Workout frequency days/week: ${profile.workout_frequency ?? 4}
+- Cardio preference: ${profile.cardio_preference || 'run'}
+- Daily calorie goal: ${dailyGoals.kcal}
+- Daily protein goal: ${dailyGoals.protein}g
+- Average logged intake (recent): ${Math.round(intakeInfo.avg)} kcal
+- Estimated daily burn: ${Math.round(tdee)} kcal
+- Daily balance estimate: ${Math.round(dailyBalance)} kcal
+- Recent logged weights: ${recentWeights || 'none'}
+- Forecast horizon months: ${horizon}
+- Intake estimate uses calorie-goal fallback: ${intakeInfo.usedFallback ? 'yes' : 'no'}
+
+Rules:
+- Tone: honest, grounded, motivating.
+- Mention uncertainty and that results depend on consistency.
+- Keep each field under 2 sentences.
+- disclaimer must say this is guidance and not medical advice.
+    `.trim();
+
+    void (async () => {
+      try {
+        const ai = new GoogleGenAI({ apiKey: geminiApiKey, apiVersion: 'v1beta' });
+        const result = await ai.models.generateContent({
+          model: 'gemini-2.5-flash-lite',
+          contents: [{ text: prompt }],
+        });
+        const text = (result.text || '').replace(/```json|```/g, '').trim();
+        const parsed = JSON.parse(text) as Partial<NarrativeCopy>;
+        if (cancelled) return;
+        setAiNarrative({
+          outlook: parsed.outlook || 'Your trajectory is moving in the right direction with consistent nutrition and training.',
+          appearance: parsed.appearance || 'Visible changes are usually gradual and depend on training quality, sleep, and daily adherence.',
+          benefits: parsed.benefits || 'Steady habits tend to improve energy, routine consistency, and long-term body composition outcomes.',
+          disclaimer: parsed.disclaimer || 'Guidance only, not medical advice.',
+        });
+      } catch {
+        if (!cancelled) {
+          setAiNarrative({
+            outlook: 'Your forecast is directionally useful, but real results depend on day-to-day consistency and logging quality.',
+            appearance: 'Body changes are typically gradual and can vary with sleep, stress, and training execution.',
+            benefits: 'Consistent nutrition, activity, and recovery are usually the strongest predictors of progress.',
+            disclaimer: 'This is general guidance and not medical advice.',
+          });
+        }
+      } finally {
+        if (!cancelled) setAiNarrativeLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    geminiApiKey,
+    authLoading,
+    dataLoading,
+    profile?.is_setup_complete,
+    profile.goal,
+    profile.gender,
+    profile.age,
+    profile.height,
+    profile.workout_frequency,
+    profile.cardio_preference,
+    dailyGoals.kcal,
+    dailyGoals.protein,
+    intakeInfo.avg,
+    intakeInfo.usedFallback,
+    tdee,
+    dailyBalance,
+    roundedStartKg,
+    roundedEndKg,
+    weightEntries,
+    horizon,
+  ]);
 
   const strengthSeries = useMemo(
     () =>
@@ -364,13 +460,13 @@ export default function ProgressPage() {
 
       <div className="glass-panel space-y-4 text-sm text-gray-300 leading-relaxed">
         <h3 className="text-white font-semibold text-base">Outlook</h3>
-        <p>{narrative.outlook}</p>
+        <p>{aiNarrativeLoading ? 'Generating a personalized outlook...' : aiNarrative?.outlook}</p>
         <h3 className="text-white font-semibold text-base pt-2">How you might look</h3>
-        <p>{narrative.appearance}</p>
+        <p>{aiNarrativeLoading ? 'Analyzing likely visual changes...' : aiNarrative?.appearance}</p>
         <h3 className="text-white font-semibold text-base pt-2">Health trajectory (general)</h3>
-        <p>{narrative.benefits}</p>
+        <p>{aiNarrativeLoading ? 'Preparing likely health trajectory...' : aiNarrative?.benefits}</p>
         <p className="text-xs text-amber-200/80 border border-amber-500/20 bg-amber-500/5 rounded-xl p-3 mt-2">
-          {narrative.disclaimer}
+          {aiNarrativeLoading ? 'Guidance only — not medical advice.' : aiNarrative?.disclaimer}
         </p>
       </div>
     </motion.div>

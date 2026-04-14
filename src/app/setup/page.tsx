@@ -46,27 +46,34 @@ function SetupForm() {
         Act as a PhD-level Sports Nutritionist. Calculate precise daily nutritional targets.
         
         Mandatory Formulas:
-        1. BMR: Use Mifflin-St Jeor Equation.
-        2. TDEE: Assume an 'Active' lifestyle (BMR * 1.55).
-        
-        Goal-Based Adjustments:
-        - 'lose' (Lose weight/Maintain muscle): Subtract 500 kcal from TDEE.
-        - 'maintain' (Maintain weight): Use TDEE exactly.
-        - 'gain' (Bulk/Gain muscle): Add 300 kcal to TDEE.
-        - 'lose_gain' (Body Recomposition): Use TDEE exactly but prioritize high protein .
-        
-        Macro Partitioning Rules:
-        - Protein: Exactly 2.2g per kg of body weight for all goals to preserve/build muscle.
-        - Fats: 25% of total calories.
-        - Carbs: Remaining calories after protein and fat.
-        - Fiber: 14g per 1000 kcal consumed.
-        
-        User Profile:
-        - Gender: ${gender} | Age: ${age} | Height: ${height}cm | Weight: ${weight}kg | Body Fat: ${bodyFat}%
-        - Main Goal: ${goal}
+ Act as a PhD-level Sports Nutritionist. Calculate precise daily nutritional targets.
 
-        Output MUST be pure JSON format (No markdown, no talk):
-        {"kcal": number, "protein": number, "carbs": number, "fats": number, "fiber": number}
+Mandatory Formulas:
+1. BMR: Use Mifflin-St Jeor Equation.
+2. TDEE: Use the correct activity multiplier:
+   - Sedentary (desk job, no exercise): BMR * 1.2
+   - Lightly active (1-3x/week): BMR * 1.375
+   - Moderately active (3-5x/week + daily walking): BMR * 1.465
+   - Very active (hard training 6-7x/week): BMR * 1.55
+
+Goal-Based Caloric Adjustments:
+- 'lose': Subtract 400 kcal from TDEE (moderate deficit, preserves muscle).
+- 'maintain': Use TDEE exactly.
+- 'gain': Add 250 kcal to TDEE (lean bulk).
+- 'lose_gain' (Body Recomposition): Subtract 200 kcal from TDEE with high protein priority.
+
+Macro Partitioning Rules:
+- Protein: 2.0g per kg of LEAN body mass (weight * (1 - bodyFat/100)) for all goals.
+- Fats: 27% of total calories.
+- Carbs: Remaining calories after protein and fat are accounted for.
+- Fiber: 14g per 1000 kcal consumed.
+
+User Profile:
+- Gender: ${gender} | Age: ${age} | Height: ${height}cm | Weight: ${weight}kg | Body Fat: ${bodyFat}%
+- Main Goal: ${goal}
+
+Output MUST be pure JSON format (No markdown, no talk):
+{"kcal": number, "protein": number, "carbs": number, "fats": number, "fiber": number}
       `;
 
       const response = await ai.models.generateContent({

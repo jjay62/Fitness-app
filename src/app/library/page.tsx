@@ -9,9 +9,28 @@ import { Plus, Search, Tag, Loader2, Pencil, Trash2, Check, X } from 'lucide-rea
 import { motion, AnimatePresence } from 'framer-motion';
 import UserNav from '../../components/UserNav';
 import { ProfileDataError } from '../../components/ProfileDataError';
+import { useLocale } from '../../context/LocaleContext';
+
+const CATEGORY_VALUES = ['All', 'Breakfast', 'Lunch', 'Dinner', 'Snack', 'Drink'] as const;
+
+function categoryLabel(
+  cat: (typeof CATEGORY_VALUES)[number],
+  tf: (key: string) => string
+) {
+  const keys: Record<(typeof CATEGORY_VALUES)[number], string> = {
+    All: 'library.catAll',
+    Breakfast: 'library.catBreakfast',
+    Lunch: 'library.catLunch',
+    Dinner: 'library.catDinner',
+    Snack: 'library.catSnack',
+    Drink: 'library.catDrink',
+  };
+  return tf(keys[cat]);
+}
 
 export default function Library() {
   const { user, loading: authLoading } = useAuth();
+  const { t } = useLocale();
   const {
     profile,
     foodLibrary,
@@ -25,12 +44,10 @@ export default function Library() {
   const router = useRouter();
 
   const [search, setSearch] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [selectedCategory, setSelectedCategory] = useState<(typeof CATEGORY_VALUES)[number]>('All');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<FoodItem | null>(null);
   const [saving, setSaving] = useState(false);
-
-  const categories = ['All', 'Breakfast', 'Lunch', 'Dinner', 'Snack', 'Drink'];
 
   useEffect(() => {
     if (!authLoading && !dataLoading && !profileFetchError) {
@@ -74,12 +91,12 @@ export default function Library() {
 
   const handleLog = (item: FoodItem) => {
     addFoodToLog(item);
-    alert(`Logged ${item.name}!`);
+    alert(t('library.logged', { name: item.name }));
   };
 
   const startEdit = (item: FoodItem) => {
     if (!item.id) {
-      alert('This item cannot be edited (no id). Re-add it from the tracker.');
+      alert(t('libraryExtra.noEditId'));
       return;
     }
     setExpandedId(item.id);
@@ -112,7 +129,7 @@ export default function Library() {
 
   const handleDelete = (item: FoodItem) => {
     if (!item.id) return;
-    if (!window.confirm(`Remove "${item.name}" from your library?`)) return;
+    if (!window.confirm(t('libraryExtra.confirmRemove', { name: item.name }))) return;
     void deleteFoodLibraryItem(item.id);
     if (expandedId === item.id) cancelEdit();
   };
@@ -125,29 +142,29 @@ export default function Library() {
     >
       <UserNav />
       <header className="flex justify-between items-center gap-2 min-w-0">
-        <h1 className="page-title text-3xl sm:text-4xl truncate">Library</h1>
+        <h1 className="page-title text-3xl sm:text-4xl truncate">{t('library.title')}</h1>
       </header>
 
       <div className="flex gap-4 w-full min-w-0">
         <div className="flex-1 space-y-4 min-w-0">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" size={18} />
             <input
               className="input-field pl-10"
-              placeholder="Search foods..."
+              placeholder={t('library.searchPlaceholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
 
           <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none snap-x -mx-1 px-1">
-            {categories.map((cat) => (
+            {CATEGORY_VALUES.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
-                className={`snap-center shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${selectedCategory === cat ? 'bg-blue-500 text-white shadow-[0_0_10px_rgba(59,130,246,0.3)]' : 'bg-white/5 border border-white/10 text-gray-300'}`}
+                className={`snap-center shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${selectedCategory === cat ? 'bg-blue-500 text-white shadow-[0_0_10px_rgba(59,130,246,0.3)]' : 'bg-white/5 border border-white/10 text-muted'}`}
               >
-                {cat}
+                {categoryLabel(cat, t)}
               </button>
             ))}
           </div>
@@ -155,8 +172,8 @@ export default function Library() {
           <div className="space-y-3 mt-4">
             <AnimatePresence>
               {filteredLibrary.length === 0 ? (
-                <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-gray-400 text-sm text-center mt-8">
-                  No items found. Scan some foods to add them here!
+                <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-muted text-sm text-center mt-8">
+                  {t('libraryExtra.noItems')}
                 </motion.p>
               ) : (
                 filteredLibrary.map((item) => (
@@ -170,13 +187,18 @@ export default function Library() {
                   >
                     <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-start">
                       <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-white break-words">{item.name}</p>
+                        <p className="font-semibold text-foreground break-words">{item.name}</p>
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
-                          <span className="text-[10px] px-2 py-0.5 rounded border border-white/10 bg-white/5 inline-flex items-center gap-1 text-gray-300 shrink-0">
-                            <Tag size={10} /> {item.category || 'Uncategorized'}
+                          <span className="text-[10px] px-2 py-0.5 rounded border border-[color:var(--glass-border)] bg-white/5 inline-flex items-center gap-1 text-muted shrink-0">
+                            <Tag size={10} />{' '}
+                            {item.category
+                              ? CATEGORY_VALUES.includes(item.category as (typeof CATEGORY_VALUES)[number])
+                                ? categoryLabel(item.category as (typeof CATEGORY_VALUES)[number], t)
+                                : item.category
+                              : t('libraryExtra.uncategorized')}
                           </span>
                           <p className="text-xs text-blue-400 font-medium shrink-0">{item.kcal} kcal</p>
-                          <p className="text-[10px] text-gray-500 break-all sm:break-normal w-full sm:w-auto">
+                          <p className="text-[10px] text-muted break-all sm:break-normal w-full sm:w-auto">
                             P{item.protein} C{item.carbs} F{item.fats} Fi{item.fiber ?? 0}
                           </p>
                         </div>
@@ -184,7 +206,7 @@ export default function Library() {
                       <div className="flex items-center justify-end gap-2 sm:shrink-0 w-full sm:w-auto pt-1 sm:pt-0 border-t border-white/5 sm:border-0">
                         <button
                           type="button"
-                          title="Log to today"
+                          title={t('libraryExtra.logToday')}
                           onClick={() => handleLog(item)}
                           className="w-10 h-10 rounded-full flex items-center justify-center bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition-colors"
                         >
@@ -192,7 +214,7 @@ export default function Library() {
                         </button>
                         <button
                           type="button"
-                          title="Edit"
+                          title={t('libraryExtra.edit')}
                           onClick={() => (expandedId === item.id ? cancelEdit() : startEdit(item))}
                           className="w-10 h-10 rounded-full flex items-center justify-center bg-white/5 text-gray-300 hover:bg-white/10 transition-colors"
                         >
@@ -200,7 +222,7 @@ export default function Library() {
                         </button>
                         <button
                           type="button"
-                          title="Delete"
+                          title={t('libraryExtra.delete')}
                           onClick={() => handleDelete(item)}
                           className="w-10 h-10 rounded-full flex items-center justify-center bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
                         >
@@ -210,9 +232,9 @@ export default function Library() {
                     </div>
 
                     {expandedId === item.id && draft && (
-                      <div className="pt-3 border-t border-white/10 space-y-3">
+                      <div className="pt-3 border-t border-[color:var(--glass-border)] space-y-3">
                         <div>
-                          <label className="text-[10px] text-gray-500 uppercase font-bold">Name</label>
+                          <label className="text-[10px] text-muted uppercase font-bold">{t('libraryExtra.name')}</label>
                           <input
                             className="input-field mt-1"
                             value={draft.name}
@@ -220,33 +242,31 @@ export default function Library() {
                           />
                         </div>
                         <div>
-                          <label className="text-[10px] text-gray-500 uppercase font-bold">Category</label>
+                          <label className="text-[10px] text-muted uppercase font-bold">{t('libraryExtra.category')}</label>
                           <select
                             className="input-field mt-1 appearance-none"
                             value={draft.category || 'Snack'}
                             onChange={(e) => setDraft({ ...draft, category: e.target.value })}
                           >
-                            {categories
-                              .filter((c) => c !== 'All')
-                              .map((c) => (
-                                <option key={c} value={c}>
-                                  {c}
-                                </option>
-                              ))}
+                            {CATEGORY_VALUES.filter((c) => c !== 'All').map((c) => (
+                              <option key={c} value={c}>
+                                {categoryLabel(c, t)}
+                              </option>
+                            ))}
                           </select>
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           {(
                             [
-                              ['kcal', 'Calories'],
-                              ['protein', 'Protein (g)'],
-                              ['carbs', 'Carbs (g)'],
-                              ['fats', 'Fats (g)'],
-                              ['fiber', 'Fiber (g)'],
+                              ['kcal', 'libraryExtra.formCalories'],
+                              ['protein', 'libraryExtra.formProtein'],
+                              ['carbs', 'libraryExtra.formCarbs'],
+                              ['fats', 'libraryExtra.formFats'],
+                              ['fiber', 'libraryExtra.formFiber'],
                             ] as const
-                          ).map(([key, label]) => (
+                          ).map(([key, labelKey]) => (
                             <div key={key}>
-                              <label className="text-[10px] text-gray-500 uppercase font-bold">{label}</label>
+                              <label className="text-[10px] text-muted uppercase font-bold">{t(labelKey)}</label>
                               <input
                                 type="number"
                                 className="input-field mt-1"
@@ -266,15 +286,15 @@ export default function Library() {
                             className="btn-primary flex-1 py-2 flex items-center justify-center gap-2 rounded-xl"
                           >
                             {saving ? <Loader2 className="animate-spin" size={18} /> : <Check size={18} />}
-                            Save
+                            {t('common.save')}
                           </button>
                           <button
                             type="button"
                             onClick={cancelEdit}
-                            className="btn-secondary flex-1 py-2 flex items-center justify-center gap-2 rounded-xl border-white/10"
+                            className="btn-secondary flex-1 py-2 flex items-center justify-center gap-2 rounded-xl border-[color:var(--glass-border)]"
                           >
                             <X size={18} />
-                            Cancel
+                            {t('common.cancel')}
                           </button>
                         </div>
                       </div>

@@ -12,8 +12,8 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={inter.variable}>
-      <body>
+    <html lang="en" className={inter.variable} suppressHydrationWarning>
+      <body className="antialiased">
         <Providers>
           <div className="max-w-[600px] mx-auto min-h-screen relative pb-28">
             <main className="p-4 pt-8">
