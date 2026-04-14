@@ -373,7 +373,7 @@ export default function AgendaPage() {
                     {formatPlanDetailText(plan?.details) ||
                       'Enjoy your day off! Keep your step count high and stay hydrated.'}
                   </p>
-                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <div className="flex flex-wrap items-center sm:gap-2 md:gap-20 pt-1">
                     <button
                       type="button"
                       onClick={() => setDetailsDay(day)}

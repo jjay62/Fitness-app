@@ -11,6 +11,7 @@ import {
   startOfNextAmsterdamDay,
   getAmsterdamDayMsRange,
 } from '../utils/amsterdamTime';
+import { evaluateAndSendNotifications } from '@/lib/notificationEngine';
 
 
 export interface Profile {
@@ -462,6 +463,37 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const id = setInterval(() => void refreshFitSteps(), 10 * 60 * 1000);
     return () => clearInterval(id);
   }, [userId, refreshFitSteps]);
+
+  useEffect(() => {
+    if (!userId || authLoading || dataLoading || !profile?.is_setup_complete) return;
+    if (typeof window === 'undefined') return;
+    let active = true;
+
+    const tick = async () => {
+      if (!active) return;
+      await evaluateAndSendNotifications({
+        userId,
+        profile,
+        dailyGoals,
+        dailyLogs,
+        recentMealLogs7d,
+        currentSteps: steps,
+      });
+    };
+
+    void tick();
+    const id = window.setInterval(() => void tick(), 60_000);
+    const onFocus = () => void tick();
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onFocus);
+
+    return () => {
+      active = false;
+      window.clearInterval(id);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onFocus);
+    };
+  }, [userId, authLoading, dataLoading, profile, dailyGoals, dailyLogs, recentMealLogs7d, steps]);
 
   const amsterdamDayRef = useRef(getAmsterdamYmd());
 

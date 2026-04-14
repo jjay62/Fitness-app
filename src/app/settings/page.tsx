@@ -8,7 +8,7 @@ import { GoogleGenAI } from '@google/genai';
 import { 
   Settings as SettingsIcon, Loader2, Sparkles, 
   Ruler, Scale, User as UserIcon, Activity,
-  Zap, Dumbbell, Calendar, CheckCircle2, ChevronDown, Link2
+  Zap, Dumbbell, Calendar, CheckCircle2, ChevronDown, Link2, Bell
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import UserNav from '../../components/UserNav';
@@ -18,6 +18,12 @@ import { useLocale } from '../../context/LocaleContext';
 import { WEEKDAYS, gymDaysFromPlan, mergeWorkoutPlanWithGymSelection } from '../../utils/workoutPlan';
 import { computeDailyTargets } from '../../utils/nutritionTargets';
 import { buildWorkoutAgendaPrompt } from '../../utils/aiPrompts';
+import {
+  DEFAULT_NOTIFICATION_PREFS,
+  readNotificationPrefs,
+  saveNotificationPrefs,
+  type NotificationPrefs,
+} from '@/lib/notificationPrefs';
 
 const CARDIO_OPTIONS = [
   { id: 'run', icon: '🏃' },
@@ -42,6 +48,7 @@ function SettingsContent() {
   const [hasLoadedInitial, setHasLoadedInitial] = useState(false);
   const [fitConnected, setFitConnected] = useState<boolean | null>(null);
   const [fitOAuthMessage, setFitOAuthMessage] = useState<string | null>(null);
+  const [notificationPrefs, setNotificationPrefs] = useState<NotificationPrefs>(DEFAULT_NOTIFICATION_PREFS);
 
   useEffect(() => {
     if (!authLoading && !dataLoading && !profileFetchError) {
@@ -62,6 +69,11 @@ function SettingsContent() {
       setHasLoadedInitial(true);
     }
   }, [profile, dataLoading, hasLoadedInitial]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    setNotificationPrefs(readNotificationPrefs(user.id));
+  }, [user?.id]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -180,6 +192,27 @@ function SettingsContent() {
     finally { setGeneratingWorkout(false); }
   };
 
+  const setNotificationFlag = (key: keyof NotificationPrefs, value: boolean) => {
+    const next = { ...notificationPrefs, [key]: value };
+    setNotificationPrefs(next);
+    saveNotificationPrefs(user?.id, next);
+  };
+
+  const requestNotificationPermission = async () => {
+    if (typeof Notification === 'undefined') {
+      alert('This browser does not support notifications.');
+      return;
+    }
+    try {
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') {
+        alert('Notifications are blocked. Enable them in your browser settings.');
+      }
+    } catch {
+      alert('Could not request notification permission.');
+    }
+  };
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6 pb-20">
       <UserNav />
@@ -293,6 +326,49 @@ function SettingsContent() {
             />
           </div>
         </div>
+      </div>
+
+      <div className="glass-panel">
+        <div className="flex items-center gap-2 mb-6 text-fuchsia-400">
+          <Bell size={20} />
+          <h2 className="text-lg font-bold uppercase tracking-wider">{t('settings.notifications')}</h2>
+        </div>
+        <p className="text-xs text-muted mb-4 leading-relaxed">{t('settings.notificationsBlurb')}</p>
+        <div className="space-y-2">
+          {(
+            [
+              ['enabled', t('settings.notifEnabled')],
+              ['mealReminders', t('settings.notifMeals')],
+              ['workoutReminder', t('settings.notifWorkout')],
+              ['cardioReminder', t('settings.notifCardio')],
+              ['weeklySummary', t('settings.notifWeekly')],
+            ] as [keyof NotificationPrefs, string][]
+          ).map(([key, label]) => {
+            const on = notificationPrefs[key];
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setNotificationFlag(key, !on)}
+                className={`w-full rounded-xl border px-3 py-2 text-sm flex items-center justify-between transition-colors ${
+                  on
+                    ? 'bg-fuchsia-500/15 border-fuchsia-500/35 text-fuchsia-200'
+                    : 'bg-white/5 border-white/10 text-muted'
+                }`}
+              >
+                <span>{label}</span>
+                <span className="text-[11px] uppercase font-bold tracking-wider">{on ? t('settings.on') : t('settings.off')}</span>
+              </button>
+            );
+          })}
+        </div>
+        <button
+          type="button"
+          className="mt-4 w-full btn-secondary py-2.5 text-sm"
+          onClick={() => void requestNotificationPermission()}
+        >
+          {t('settings.allowBrowserNotifications')}
+        </button>
       </div>
 
       <div className="glass-panel">

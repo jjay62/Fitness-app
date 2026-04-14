@@ -59,9 +59,9 @@ const CircularProgress = ({
   }, [offset, circumference]);
 
   return (
-    <div className="flex flex-col items-center gap-2">
-      <div className="relative w-20 h-20">
-        <svg width="80" height="80" className="-rotate-90">
+    <div className="flex flex-col items-center gap-2 min-w-0">
+      <div className="relative w-[72px] h-[72px] sm:w-20 sm:h-20">
+        <svg width="72" height="72" viewBox="0 0 80 80" className="-rotate-90 w-full h-full">
           <circle cx="40" cy="40" r={radius} stroke="var(--glass-border)" strokeWidth="6" fill="none" />
           <circle
             ref={circleRef}
@@ -76,9 +76,9 @@ const CircularProgress = ({
           {icon}
         </div>
       </div>
-      <div className="text-center max-w-[88px]">
-        <p className="m-0 text-xs font-semibold">{value} / {max}</p>
-        <p className="m-0 text-[10px] text-muted">{label}</p>
+      <div className="text-center w-full max-w-[92px]">
+        <p className="m-0 text-[11px] sm:text-xs font-semibold truncate">{value} / {max}</p>
+        <p className="m-0 text-[10px] text-muted truncate">{label}</p>
         {sublabel ? (
           <p className="m-0 mt-0.5 text-[9px] text-muted leading-tight">{sublabel}</p>
         ) : null}
@@ -294,12 +294,16 @@ export default function Dashboard() {
   const burnGoalMax = Math.min(900, Math.max(300, Math.round(dailyGoals.kcal * 0.25)));
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="max-w-2xl mx-auto w-full px-4 sm:px-0 space-y-6 pb-24"
+    >
       <UserNav />
 
-      <header className="flex justify-between items-center text-foreground">
-        <div>
-          <h1 className="page-title text-4xl">{t('dashboard.title')}</h1>
+      <header className="flex flex-col items-start gap-3 sm:flex-row sm:justify-between sm:items-center text-foreground">
+        <div className="min-w-0">
+          <h1 className="page-title text-3xl sm:text-4xl">{t('dashboard.title')}</h1>
           <p className="text-muted text-sm">
             {t('dashboard.welcome', { name: profile?.username || t('dashboard.legend') })}
           </p>
@@ -307,11 +311,11 @@ export default function Dashboard() {
         <button
           type="button"
           onClick={() => setDatePickerOpen(true)}
-          className="bg-white/5 border border-white/10 px-4 py-2 rounded-full dark:bg-white/5 text-sm text-blue-400 font-semibold inline-flex items-center gap-2 hover:bg-white/10 transition-colors"
+          className="w-full sm:w-auto bg-white/5 border border-white/10 px-3 py-2 rounded-full dark:bg-white/5 text-sm text-blue-400 font-semibold inline-flex items-center justify-center gap-2 hover:bg-white/10 transition-colors"
           title={t('dashboard.selectDate')}
         >
-          <CalendarDays size={15} />
-          {selectedDateLabel}
+          <CalendarDays size={15} className="shrink-0" />
+          <span className="truncate">{selectedDateLabel}</span>
         </button>
       </header>
 
@@ -321,10 +325,10 @@ export default function Dashboard() {
           animate={{ opacity: 1, scale: 1 }}
           className="glass-panel border-blue-500/30 bg-gradient-to-br from-blue-500/10 to-transparent p-5"
         >
-          <div className="flex justify-between items-start mb-3">
-            <div className="flex items-center gap-2">
+          <div className="flex justify-between items-start mb-3 gap-3">
+            <div className="flex items-center gap-2 min-w-0">
               <Sparkles size={18} className="text-blue-400" />
-              {t('dashboard.dayAgenda')}
+              <span className="truncate">{t('dashboard.dayAgenda')}</span>
             </div>
             <Link 
               href="/agenda" 
@@ -334,25 +338,25 @@ export default function Dashboard() {
               <ChevronRight size={12} className="group-hover:translate-x-0.5 transition-transform" />
             </Link>
           </div>
-          <div className="flex justify-between items-start mb-3">
-            <h2 className="text-sm font-bold text-muted uppercase tracking-tighter">{t('dashboard.currentRoutine')}</h2>
+          <div className="flex justify-between items-start mb-3 gap-2">
+            <h2 className="text-xs sm:text-sm font-bold text-muted uppercase tracking-tighter">{t('dashboard.currentRoutine')}</h2>
             <div
-              className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+              className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider shrink-0 ${
                 selectedIsGym ? 'bg-blue-500 text-white' : 'bg-white/10 text-muted'
               }`}
             >
               {selectedIsGym ? t('dashboard.gym') : todayPlanEntry?.type || t('dashboard.rest')}
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
             <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
                {selectedIsGym ? <Dumbbell className="text-blue-400" /> : <Flame className="text-amber-400" />}
             </div>
-            <div>
-              <p className="font-bold text-foreground text-lg leading-tight">
+            <div className="min-w-0">
+              <p className="font-bold text-foreground text-base sm:text-lg leading-tight break-words">
                 {formatPlanDetailText(todayPlanEntry?.activity) || t('dashboard.restDay')}
               </p>
-              <p className="text-xs text-muted mt-1 italic line-clamp-3">
+              <p className="text-xs text-muted mt-1 italic line-clamp-3 break-words">
                 {formatPlanDetailText(todayPlanEntry?.details) || t('dashboard.recoveryHint')}
               </p>
             </div>
@@ -362,7 +366,7 @@ export default function Dashboard() {
 
       <div className="glass-panel">
         <h2 className="text-xl font-semibold mb-4">{t('dashboard.dailyGoals')}</h2>
-        <div className="flex flex-wrap justify-between gap-y-6 gap-x-1 sm:gap-x-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-y-6 gap-x-2 place-items-center">
           <CircularProgress
             value={totalKcal}
             max={dailyGoals.kcal}
@@ -419,7 +423,7 @@ export default function Dashboard() {
             <h3 className="flex items-center gap-2 text-emerald-400">
               <Activity size={20} /> {t('dashboard.activity')}
             </h3>
-            <p className="text-3xl font-bold my-2">{selectedSteps.toLocaleString()}</p>
+            <p className="text-2xl sm:text-3xl font-bold my-2">{selectedSteps.toLocaleString()}</p>
             <p className="text-sm text-muted">{t('dashboard.stepsForDate')}</p>
           </div>
           <button
@@ -467,10 +471,10 @@ export default function Dashboard() {
                 className="flex justify-between items-center gap-2 pb-3 border-b border-[color:var(--glass-border)] last:border-0 last:pb-0"
               >
                 <div className="min-w-0 flex-1">
-                  <span className="block font-medium">{log.name}</span>
+                <span className="block font-medium truncate">{log.name}</span>
                   <span className="text-xs text-gray-400">{log.category}</span>
                 </div>
-                <span className="font-semibold text-blue-400 shrink-0">{log.kcal} kcal</span>
+                <span className="font-semibold text-blue-400 shrink-0 text-xs sm:text-sm">{log.kcal} kcal</span>
                 <button
                   type="button"
                   title={t('dashboard.removeMeal')}
@@ -493,9 +497,9 @@ export default function Dashboard() {
         <div className="space-y-2">
           {weekRows.map((row) => (
             <div key={row.ymd} className="rounded-xl border border-[color:var(--glass-border)] p-3 bg-white/5">
-              <div className="flex items-center justify-between text-sm mb-2">
-                <span className="font-semibold">{row.weekday}</span>
-                <span className="text-xs text-muted uppercase">{row.dayType}</span>
+              <div className="flex items-center justify-between text-sm mb-2 gap-2">
+                <span className="font-semibold truncate">{row.weekday}</span>
+                <span className="text-xs text-muted uppercase shrink-0">{row.dayType}</span>
               </div>
               <div className="flex items-center justify-between text-xs text-muted mb-2">
                 <span>{row.kcal.toFixed(0)} kcal</span>
