@@ -20,6 +20,8 @@ This document lists every active Gemini prompt in the app and what it is used fo
   - `src/app/setup/workout/page.tsx`
   - `src/app/settings/page.tsx` (`generateWorkoutPlan`)
 - **Purpose**: Generate a 7-day workout/cardio/rest agenda in strict JSON.
+- **Output shape**: Each day includes `details.summary` + `details.workouts[]` with
+  `name`, `description`, and `youtube`.
 - **Prompt template**:
 
 ```text
@@ -42,6 +44,18 @@ RULES:
 
 Output MUST be pure JSON...
 ```
+
+## Custom agenda import prompt
+
+- **Prompt source**: `src/utils/aiPrompts.ts` (`buildAgendaImportPrompt`)
+- **Used by**:
+  - `src/app/agenda/page.tsx` (`importCustomAgenda`)
+- **Purpose**: Merge user-provided notes/files (PDF/PNG/JPEG + text) into the existing 7-day agenda.
+- **Prompt key points**:
+  - Preserve exact weekday keys Monday-Sunday.
+  - Keep existing days when user only edits a subset.
+  - Keep user-provided workout titles when present.
+  - Return strict JSON in the same structured agenda format.
 
 ## Progress narrative prompt
 

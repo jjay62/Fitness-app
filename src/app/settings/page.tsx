@@ -168,7 +168,7 @@ function SettingsContent() {
       });
       const result = await ai.models.generateContent({ model: 'gemini-2.5-flash-lite', contents: [{ text: prompt }] });
       const text = result.text || '';
-      const plan = JSON.parse(text.replace(/```json|```/g, '').trim()) as Record<string, { type?: string; activity?: string; details?: string }>;
+      const plan = JSON.parse(text.replace(/```json|```/g, '').trim()) as Record<string, { type?: string; activity?: string; details?: unknown }>;
       const merged = { ...localProfile, workout_plan: plan };
       await updateProfile(merged);
       setLocalProfile(merged);

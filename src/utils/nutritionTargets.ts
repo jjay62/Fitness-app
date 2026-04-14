@@ -59,10 +59,10 @@ export function calorieAdjustmentKcal(profile: Partial<Profile>): number {
     return Math.round(200 + 100 * volume);
   }
   if (goal === 'lose') {
-    return Math.round(clamp(-500 - 150 * volume, -700, -450));
+    return Math.round(clamp(-550 - 150 * volume, -720, -520));
   }
   if (goal === 'lose_gain') {
-    return Math.round(clamp(-300 - 200 * volume, -500, -300));
+    return -500;
   }
   return 0;
 }
@@ -79,9 +79,8 @@ export function computeDailyTargets(profile: Partial<Profile>): DailyTargets {
   const bodyFat = clamp(parseNum(profile.body_fat_percentage, 20), 3, 55);
   const leanMassKg = Math.max(35, weightKg * (1 - bodyFat / 100));
 
-  // Unified macro rules: protein from lean mass + fat ratio.
-  const protein = Math.round(leanMassKg * 2.0);
-  const fats = Math.max(35, Math.round((kcal * 0.27) / KCAL_PER_GRAM_FAT));
+  const protein = Math.round(leanMassKg * 2.2);
+  const fats = Math.max(35, Math.round((kcal * 0.26) / KCAL_PER_GRAM_FAT));
 
   const kcalAfterProteinFat =
     kcal - protein * KCAL_PER_GRAM_PROTEIN - fats * KCAL_PER_GRAM_FAT;
@@ -101,8 +100,8 @@ export function nutritionRulesForPrompt(profile: Partial<Profile>): string {
     '3) Dynamic goal adjustment based on workout volume (frequency + duration).',
     `4) Current workout volume index (0..1): ${volume.toFixed(2)}`,
     `5) Current signed calorie adjustment: ${delta} kcal/day`,
-    '6) Protein: 2.0g per kg lean body mass',
-    '7) Fats: 27% of calories',
+    '6) Protein: 2.2g per kg lean body mass',
+    '7) Fats: 26% of calories',
     '8) Carbs: remaining calories',
     '9) Fiber: 14g per 1000 kcal',
   ].join('\n');

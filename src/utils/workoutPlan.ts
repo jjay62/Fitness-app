@@ -24,6 +24,10 @@ export function formatPlanDetailText(value: unknown): string {
       .join('\n');
   }
   if (typeof value === 'object') {
+    const maybeObj = value as Record<string, unknown>;
+    if (typeof maybeObj.summary === 'string' && maybeObj.summary.trim().length > 0) {
+      return maybeObj.summary.trim();
+    }
     try {
       return JSON.stringify(value, null, 2);
     } catch {

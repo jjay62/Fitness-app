@@ -21,7 +21,7 @@ export default function BottomNav() {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[600px] h-20 bg-[var(--nav-bg)] backdrop-blur-xl border-t border-[color:var(--nav-border)] z-[100] pb-[env(safe-area-inset-bottom,0px)]">
+    <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[600px] h-20 bg-[var(--nav-bg)] backdrop-blur-xl border-t border-white/15 z-[100] pb-[env(safe-area-inset-bottom,0px)]">
       <div className="h-full overflow-x-auto overflow-y-hidden scrollbar-none flex items-center px-1">
         <div className="flex min-w-full justify-start sm:justify-between items-center gap-0.5 px-1 py-1">
           {navItems.map((item) => {

@@ -94,7 +94,10 @@ export default function WorkoutSetupPage() {
       if (textResult.includes('```json')) textResult = textResult.split('```json')[1].split('```')[0];
       if (textResult.includes('```')) textResult = textResult.split('```')[1].split('```')[0];
       
-      const workoutPlan = JSON.parse(textResult.trim());
+      const workoutPlan = JSON.parse(textResult.trim()) as Record<
+        string,
+        { type?: string; activity?: string; details?: unknown }
+      >;
       
       await updateProfile({ 
         workout_plan: workoutPlan,
