@@ -4,14 +4,14 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useApp } from '@/context/AppContext';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { GoogleGenAI } from '@google/genai';
 import { motion } from 'framer-motion';
 import { Scale, Ruler, User as UserIcon, Activity, Sparkles, Loader2, Info } from 'lucide-react';
 import Link from 'next/link';
+import { computeDailyTargets } from '@/utils/nutritionTargets';
 
 function SetupForm() {
   const { user } = useAuth();
-  const { updateProfileAndGoals, geminiApiKey, saveGeminiKey } = useApp();
+  const { updateProfileAndGoals } = useApp();
   const router = useRouter();
   const searchParams = useSearchParams();
   const bodyFatParam = searchParams.get('bf');
@@ -23,7 +23,6 @@ function SetupForm() {
   const [gender, setGender] = useState('male');
   const [goal, setGoal] = useState('maintain');
   const [calculating, setCalculating] = useState(false);
-  const [localApiKey, setLocalApiKey] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -33,53 +32,11 @@ function SetupForm() {
   }, [bodyFatParam]);
 
   const handleCompleteSetup = async () => {
-    if (!user || !geminiApiKey) return;
+    if (!user) return;
     setCalculating(true);
     setError(null);
 
     try {
-      const ai = new GoogleGenAI({
-        apiKey: geminiApiKey,
-        apiVersion: 'v1beta'
-      });
-      const prompt = `
-        Act as a PhD-level Sports Nutritionist. Calculate precise daily nutritional targets.
-        
-        Mandatory Formulas:
-        1. BMR: Use Mifflin-St Jeor Equation.
-        2. TDEE: Assume an 'Active' lifestyle (BMR * 1.55).
-        
-        Goal-Based Adjustments:
-        - 'lose' (Lose weight/Maintain muscle): Subtract 500 kcal from TDEE.
-        - 'maintain' (Maintain weight): Use TDEE exactly.
-        - 'gain' (Bulk/Gain muscle): Add 300 kcal to TDEE.
-        - 'lose_gain' (Body Recomposition): Use TDEE exactly but prioritize high protein.
-        
-        Macro Partitioning Rules:
-        - Protein: Exactly 2.2g per kg of body weight for all goals to preserve/build muscle.
-        - Fats: 25% of total calories.
-        - Carbs: Remaining calories after protein and fat.
-        - Fiber: 14g per 1000 kcal consumed.
-        
-        User Profile:
-        - Gender: ${gender} | Age: ${age} | Height: ${height}cm | Weight: ${weight}kg | Body Fat: ${bodyFat}%
-        - Main Goal: ${goal}
-
-        Output MUST be pure JSON format (No markdown, no talk):
-        {"kcal": number, "protein": number, "carbs": number, "fats": number, "fiber": number}
-      `;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-lite',
-        contents: [{ text: prompt }]
-      });
-
-      let text = response.text || '';
-      if (text.includes('```json')) text = text.split('```json')[1].split('```')[0];
-      if (text.includes('```')) text = text.split('```')[1].split('```')[0];
-
-      const parsedGoals = JSON.parse(text.trim());
-
       const newProfile = {
         height: height.toString(),
         weight: weight.toString(),
@@ -90,15 +47,12 @@ function SetupForm() {
         is_setup_complete: true,
       };
 
+      const parsedGoals = computeDailyTargets(newProfile);
       await updateProfileAndGoals(newProfile, parsedGoals);
       router.push('/setup/workout');
     } catch (err: any) {
       console.error(err);
-      if (err.status === 429 || err.message?.includes('429')) {
-        setError('Daily AI Limit Reached (Google Quota). Please create a NEW PROJECT in AI Studio to get a fresh key, or wait 24h.');
-      } else {
-        setError('AI Generation failed. Please check your API key and connection.');
-      }
+      setError('Could not calculate targets. Please verify your profile inputs and try again.');
     } finally {
       setCalculating(false);
     }

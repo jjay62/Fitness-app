@@ -29,6 +29,7 @@ import {
   buildProjectionSeries,
 } from '@/utils/weightProjection';
 import { buildStrengthMuscleSeries, strengthNarrative } from '@/utils/strengthProjection';
+import { computeDailyTargets } from '@/utils/nutritionTargets';
 
 const MS_PER_MONTH = 30.44 * 24 * 60 * 60 * 1000;
 type NarrativeCopy = { outlook: string; appearance: string; benefits: string; disclaimer: string };
@@ -44,7 +45,6 @@ export default function ProgressPage() {
   const {
     geminiApiKey,
     profile,
-    dailyGoals,
     recentMealLogs7d,
     weightEntries,
     addWeightEntry,
@@ -68,14 +68,15 @@ export default function ProgressPage() {
   }, [user, profile, authLoading, dataLoading, profileFetchError, router]);
 
   const tdee = useMemo(() => estimateTdee(profile), [profile]);
+  const computedTargets = useMemo(() => computeDailyTargets(profile), [profile]);
 
   const intakeInfo = useMemo(() => {
     const fromLogs = averageDailyKcalFromLogs(recentMealLogs7d, 7);
     if (fromLogs) {
       return { avg: fromLogs.avg, usedFallback: false };
     }
-    return { avg: dailyGoals.kcal, usedFallback: true };
-  }, [recentMealLogs7d, dailyGoals.kcal]);
+    return { avg: computedTargets.kcal, usedFallback: true };
+  }, [recentMealLogs7d, computedTargets.kcal]);
 
   const dailyBalance = useMemo(() => intakeInfo.avg - tdee, [intakeInfo.avg, tdee]);
   const monthlyDelta = useMemo(() => monthlyWeightDeltaKg(dailyBalance), [dailyBalance]);
@@ -134,7 +135,7 @@ export default function ProgressPage() {
       .join(', ');
 
     const prompt = `
-You are a realistic fitness and nutrition coach.
+Act as a knowledgeable fitness coach giving an honest 6-month progress outlook.
 Write a concise and practical 6-month progress narrative for this user.
 Do NOT show formulas, equations, or step-by-step calculations.
 Avoid fake precision and avoid overconfidence.
@@ -151,8 +152,9 @@ User profile:
 - Estimated 6-month weight range center: ${roundedEndKg}
 - Workout frequency days/week: ${profile.workout_frequency ?? 4}
 - Cardio preference: ${profile.cardio_preference || 'run'}
-- Daily calorie goal: ${dailyGoals.kcal}
-- Daily protein goal: ${dailyGoals.protein}g
+- Computed daily calorie target (authoritative): ${computedTargets.kcal}
+- Computed daily protein target: ${computedTargets.protein}g
+- Stored app calorie goal may be stale and is non-authoritative.
 - Average logged intake (recent): ${Math.round(intakeInfo.avg)} kcal
 - Estimated daily burn: ${Math.round(tdee)} kcal
 - Daily balance estimate: ${Math.round(dailyBalance)} kcal
@@ -164,6 +166,7 @@ Rules:
 - Tone: honest, grounded, motivating.
 - Mention uncertainty and that results depend on consistency.
 - Keep each field under 2 sentences.
+- Do not treat stored database calorie goals as ground truth.
 - disclaimer must say this is guidance and not medical advice.
     `.trim();
 
@@ -211,8 +214,8 @@ Rules:
     profile.height,
     profile.workout_frequency,
     profile.cardio_preference,
-    dailyGoals.kcal,
-    dailyGoals.protein,
+    computedTargets.kcal,
+    computedTargets.protein,
     intakeInfo.avg,
     intakeInfo.usedFallback,
     tdee,
@@ -229,10 +232,10 @@ Rules:
         weightKg: w0,
         goal: profile.goal,
         sessionsPerWeek: parseNum(profile.workout_frequency, 4),
-        proteinGPerDay: dailyGoals.protein,
+        proteinGPerDay: computedTargets.protein,
         calorieSurplusPerDay: dailyBalance,
       }),
-    [horizon, w0, profile.goal, profile.workout_frequency, dailyGoals.protein, dailyBalance]
+    [horizon, w0, profile.goal, profile.workout_frequency, computedTargets.protein, dailyBalance]
   );
 
   const submitWeight = async () => {
@@ -301,7 +304,7 @@ Rules:
         <p className="text-xs text-gray-500">
           Est. daily burn: <span className="text-gray-300 font-medium">{Math.round(tdee)}</span> kcal · Average
           intake: <span className="text-gray-300 font-medium">{Math.round(intakeInfo.avg)}</span> kcal
-          {intakeInfo.usedFallback ? ' (using your calorie goal)' : ''}
+          {intakeInfo.usedFallback ? ' (using your computed target)' : ''}
         </p>
       </div>
 

@@ -9,10 +9,11 @@ import { Sparkles, Loader2, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import UserNav from '../../components/UserNav';
 import { ProfileDataError } from '../../components/ProfileDataError';
+import { computeDailyTargets } from '../../utils/nutritionTargets';
 
 export default function Suggestions() {
   const { user, loading: authLoading } = useAuth();
-  const { profile, geminiApiKey, dailyGoals, dailyLogs, addFoodToLog, dataLoading, profileFetchError, refetchUserData } = useApp();
+  const { profile, geminiApiKey, dailyLogs, addFoodToLog, dataLoading, profileFetchError, refetchUserData } = useApp();
   const router = useRouter();
 
   const [mealType, setMealType] = useState('Lunch');
@@ -61,9 +62,15 @@ export default function Suggestions() {
     setLoading(true);
     setSuggestions([]);
 
-    // Calculate remaining macros to make suggestions targeted
+    const targets = computeDailyTargets(profile);
     const consumedKcal = dailyLogs.reduce((acc, l) => acc + (l.kcal || 0), 0);
-    const remainingKcal = Math.max(dailyGoals.kcal - consumedKcal, 0);
+    const consumedProtein = dailyLogs.reduce((acc, l) => acc + (l.protein || 0), 0);
+    const consumedCarbs = dailyLogs.reduce((acc, l) => acc + (l.carbs || 0), 0);
+    const consumedFats = dailyLogs.reduce((acc, l) => acc + (l.fats || 0), 0);
+    const remainingKcal = Math.max(targets.kcal - consumedKcal, 0);
+    const remainingProtein = Math.max(targets.protein - consumedProtein, 0);
+    const remainingCarbs = Math.max(targets.carbs - consumedCarbs, 0);
+    const remainingFats = Math.max(targets.fats - consumedFats, 0);
 
     try {
       const ai = new GoogleGenAI({ 
@@ -73,7 +80,9 @@ export default function Suggestions() {
       const prompt = `
         I need 3 meal suggestions for a ${mealType}.
         My profile: ${profile.gender}, ${profile.age} years. Goal: ${profile.goal}.
-        I have ${remainingKcal} kcal remaining for today out of my ${dailyGoals.kcal} kcal goal.
+        I have ${remainingKcal} kcal remaining for today out of my computed ${targets.kcal} kcal target.
+        Remaining macros: ${Math.round(remainingProtein)}g protein, ${Math.round(remainingCarbs)}g carbs, ${Math.round(remainingFats)}g fats.
+        Prioritize meals that help hit remaining protein first.
         
         Generate exactly 3 healthy and engaging options. 
         Output MUST be pure JSON format array of exactly 3 objects with NO markdown and NO code blocks:

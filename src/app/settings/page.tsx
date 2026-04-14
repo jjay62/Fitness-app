@@ -16,6 +16,8 @@ import { AppearanceControls } from '../../components/AppearanceControls';
 import { ProfileDataError } from '../../components/ProfileDataError';
 import { useLocale } from '../../context/LocaleContext';
 import { WEEKDAYS, gymDaysFromPlan, mergeWorkoutPlanWithGymSelection } from '../../utils/workoutPlan';
+import { computeDailyTargets } from '../../utils/nutritionTargets';
+import { buildWorkoutAgendaPrompt } from '../../utils/aiPrompts';
 
 const CARDIO_OPTIONS = [
   { id: 'run', icon: '🏃' },
@@ -141,19 +143,9 @@ function SettingsContent() {
   };
 
   const generateDietPlan = async () => {
-    if (!geminiApiKey) return alert(t('settings.aiKeyMissing'));
     setGeneratingDiet(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: geminiApiKey, apiVersion: 'v1beta' });
-      const prompt = `
-        Act as a PhD-level Sports Nutritionist. Calculate precise daily nutritional targets.
-        Profile: ${localProfile.gender}, ${localProfile.age}y/o, ${localProfile.height}cm, ${localProfile.weight}kg, ${localProfile.body_fat_percentage}% fat. Goal: ${localProfile.goal}.
-        Rules: Mifflin-St Jeor, 1.55x Activity, 2.2g Protein/kg.
-        Output MUST be pure JSON: {"kcal": 0, "protein": 0, "carbs": 0, "fats": 0, "fiber": 0}
-      `;
-      const result = await ai.models.generateContent({ model: 'gemini-2.5-flash-lite', contents: [{ text: prompt }] });
-      const text = result.text || '';
-      const goals = JSON.parse(text.replace(/```json|```/g, '').trim());
+      const goals = computeDailyTargets(localProfile);
       await updateProfileAndGoals(localProfile, goals);
       alert(t('settings.dietUpdated'));
     } catch (e) {
@@ -168,11 +160,12 @@ function SettingsContent() {
     setGeneratingWorkout(true);
     try {
       const ai = new GoogleGenAI({ apiKey: geminiApiKey, apiVersion: 'v1beta' });
-      const prompt = `
-        Coach Mode: Create a 7-day Agenda. 
-        Goal: ${localProfile.goal}. Gym Days: ${selectedDays.join(', ')}. Cardio: ${localProfile.cardio_preference || 'run'}.
-        JSON: {"Monday": {"type": "Gym/Cardio/Rest", "activity": "", "details": ""}, ...}
-      `;
+      const prompt = buildWorkoutAgendaPrompt({
+        goal: localProfile.goal,
+        selectedDays,
+        durationHours: Number(localProfile.workout_duration) || 1,
+        cardioPreference: localProfile.cardio_preference || 'run',
+      });
       const result = await ai.models.generateContent({ model: 'gemini-2.5-flash-lite', contents: [{ text: prompt }] });
       const text = result.text || '';
       const plan = JSON.parse(text.replace(/```json|```/g, '').trim()) as Record<string, { type?: string; activity?: string; details?: string }>;

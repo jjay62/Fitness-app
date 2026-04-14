@@ -1,9 +1,9 @@
 import type { Profile } from '../context/AppContext';
+import { ACTIVITY_MODERATE } from './nutritionTargets';
 
 export const HORIZON_MONTHS = [1, 3, 4, 6, 9, 12] as const;
 export type HorizonMonths = (typeof HORIZON_MONTHS)[number];
 
-const ACTIVITY_FACTOR = 1.55;
 const KCAL_PER_KG_FAT = 7700;
 const AVG_DAYS_PER_MONTH = 30.44;
 
@@ -26,7 +26,7 @@ export function estimateBmrKg(profile: Profile): number {
 }
 
 export function estimateTdee(profile: Profile): number {
-  return estimateBmrKg(profile) * ACTIVITY_FACTOR;
+  return estimateBmrKg(profile) * ACTIVITY_MODERATE;
 }
 
 /** Map each log to local calendar date string YYYY-MM-DD */
