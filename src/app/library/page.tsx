@@ -118,14 +118,18 @@ export default function Library() {
   };
 
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6 pb-4">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="space-y-6 px-4 pb-24 max-w-2xl mx-auto w-full"
+    >
       <UserNav />
-      <header className="flex justify-between items-center">
-        <h1 className="page-title">Library</h1>
+      <header className="flex justify-between items-center gap-2 min-w-0">
+        <h1 className="page-title text-3xl sm:text-4xl truncate">Library</h1>
       </header>
 
-      <div className="flex gap-4">
-        <div className="flex-1 space-y-4">
+      <div className="flex gap-4 w-full min-w-0">
+        <div className="flex-1 space-y-4 min-w-0">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             <input
@@ -136,7 +140,7 @@ export default function Library() {
             />
           </div>
 
-          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none snap-x">
+          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none snap-x -mx-1 px-1">
             {categories.map((cat) => (
               <button
                 key={cat}
@@ -164,20 +168,20 @@ export default function Library() {
                     exit={{ opacity: 0, scale: 0.95 }}
                     className="glass-panel p-4 space-y-3"
                   >
-                    <div className="flex justify-between items-start gap-2">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-start">
                       <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-white">{item.name}</p>
-                        <div className="flex flex-wrap items-center gap-2 mt-1">
-                          <span className="text-[10px] px-2 py-0.5 rounded border border-white/10 bg-white/5 flex items-center gap-1 text-gray-300">
+                        <p className="font-semibold text-white break-words">{item.name}</p>
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
+                          <span className="text-[10px] px-2 py-0.5 rounded border border-white/10 bg-white/5 inline-flex items-center gap-1 text-gray-300 shrink-0">
                             <Tag size={10} /> {item.category || 'Uncategorized'}
                           </span>
-                          <p className="text-xs text-blue-400 font-medium">{item.kcal} kcal</p>
-                          <p className="text-[10px] text-gray-500">
+                          <p className="text-xs text-blue-400 font-medium shrink-0">{item.kcal} kcal</p>
+                          <p className="text-[10px] text-gray-500 break-all sm:break-normal w-full sm:w-auto">
                             P{item.protein} C{item.carbs} F{item.fats} Fi{item.fiber ?? 0}
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-1 shrink-0">
+                      <div className="flex items-center justify-end gap-2 sm:shrink-0 w-full sm:w-auto pt-1 sm:pt-0 border-t border-white/5 sm:border-0">
                         <button
                           type="button"
                           title="Log to today"

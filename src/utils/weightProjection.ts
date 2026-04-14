@@ -119,7 +119,7 @@ export function narrativeForProjection(params: {
   }
 
   if (usedIntakeFallback) {
-    outlook += ' Intake is estimated from your calorie goal because there were not enough recent food logs.';
+    outlook += ' Logging meals improves this estimate.';
   }
 
   let appearance = '';
@@ -149,8 +149,7 @@ export function narrativeForProjection(params: {
       'Maintenance phases support habit stability, performance, and metabolic recovery between fat-loss or muscle-gain pushes.';
   }
 
-  const disclaimer =
-    'This chart blends your logged weights (when available) with a simple calorie-balance model (~7700 kcal per kg). It is not medical advice. Water shifts, stress, hormones, and training change day-to-day weight; talk to a clinician for personalized guidance.';
+  const disclaimer = 'Estimates only—for planning, not medical advice.';
 
   return { outlook, appearance, benefits, disclaimer };
 }

@@ -3,14 +3,6 @@ import { createClient } from '@/utils/supabase/server';
 import { refreshGoogleAccessToken } from '@/lib/googleFit/tokens';
 import { fetchAggregatedStepsForRange } from '@/lib/googleFit/aggregateSteps';
 
-/**
- * Supabase: run `supabase/migrations/20260413120000_google_fit_steps.sql` (or paste into SQL editor).
- * Adds profiles.google_fit_refresh_token, drops strava_access_token, creates strava_daily_steps + RLS.
- * No separate "google_fit" table — steps are cached in strava_daily_steps (name kept for compatibility).
- *
- * Env: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET (server). Enable "Fitness API" in Google Cloud Console.
- */
-
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
 export async function GET(req: NextRequest) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createClient } from '@/utils/supabase/server';
+import { getGoogleFitRedirectUri } from '@/lib/googleFit/redirectUri';
 
 const STATE_COOKIE = 'google_fit_oauth_state';
 const SCOPE = 'https://www.googleapis.com/auth/fitness.activity.read';
@@ -17,7 +18,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(login);
   }
 
-  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
   if (!clientId) {
     return NextResponse.json({ error: 'GOOGLE_CLIENT_ID is not configured' }, { status: 500 });
   }
@@ -32,7 +33,7 @@ export async function GET(req: NextRequest) {
     maxAge: 600,
   });
 
-  const redirectUri = `${req.nextUrl.origin}/api/auth/google-fit/callback`;
+  const redirectUri = getGoogleFitRedirectUri(req);
   const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
   url.searchParams.set('client_id', clientId);
   url.searchParams.set('redirect_uri', redirectUri);

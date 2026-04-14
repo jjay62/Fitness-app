@@ -139,12 +139,6 @@ export default function ProgressPage() {
     [horizon, w0, profile.goal, profile.workout_frequency, dailyGoals.protein, dailyBalance]
   );
 
-  const strengthStory = useMemo(() => {
-    const last = strengthSeries[strengthSeries.length - 1];
-    if (!last) return '';
-    return strengthNarrative(profile.goal, last.strengthIndex, last.leanMassKg);
-  }, [strengthSeries, profile.goal]);
-
   const submitWeight = async () => {
     const v = parseFloat(weightInput);
     if (!Number.isFinite(v)) {
@@ -191,7 +185,7 @@ export default function ProgressPage() {
         </div>
         <div>
           <h1 className="page-title text-2xl">Progress</h1>
-          <p className="text-gray-400 text-sm">Weight outlook from your data and calorie balance</p>
+          <p className="text-gray-400 text-sm">Track weight and see simple projections</p>
         </div>
       </header>
 
@@ -209,9 +203,9 @@ export default function ProgressPage() {
           ))}
         </select>
         <p className="text-xs text-gray-500">
-          Est. TDEE (Mifflin × 1.55): <span className="text-gray-300 font-medium">{Math.round(tdee)}</span> kcal/day
-          · Avg intake: <span className="text-gray-300 font-medium">{Math.round(intakeInfo.avg)}</span> kcal/day
-          {intakeInfo.usedFallback ? ' (from calorie goal — log meals for accuracy)' : ' (from recent logs)'}
+          Est. daily burn: <span className="text-gray-300 font-medium">{Math.round(tdee)}</span> kcal · Average
+          intake: <span className="text-gray-300 font-medium">{Math.round(intakeInfo.avg)}</span> kcal
+          {intakeInfo.usedFallback ? ' (using your calorie goal)' : ''}
         </p>
       </div>
 
@@ -220,10 +214,7 @@ export default function ProgressPage() {
           <Scale size={18} className="text-blue-400" />
           Log weight (kg)
         </h2>
-        <p className="text-xs text-gray-500">
-          Real trend lines need weigh-ins. Without the <code className="text-gray-400">weight_entries</code> table, saving
-          will fail — see SQL comment in AppContext.
-        </p>
+        <p className="text-xs text-gray-500">Log weight here to build your chart over time.</p>
         <div className="flex gap-2">
           <input
             type="number"
@@ -260,7 +251,7 @@ export default function ProgressPage() {
       </div>
 
       <div className="glass-panel h-[320px] w-full">
-        <p className="text-xs text-gray-500 mb-2">Weight (kg) vs months from today (logged points may sit before month 0)</p>
+        <p className="text-xs text-gray-500 mb-2">Weight (kg) over time</p>
         <ResponsiveContainer width="100%" height="90%">
           <ComposedChart margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
@@ -311,12 +302,9 @@ export default function ProgressPage() {
       <div className="glass-panel h-[340px] w-full">
         <h2 className="text-sm font-bold text-white flex items-center gap-2 mb-1">
           <Dumbbell size={18} className="text-violet-400" />
-          Strength &amp; muscle (illustrative)
+          Strength &amp; muscle
         </h2>
-        <p className="text-[11px] text-gray-500 mb-2 leading-snug">
-          Modeled index (100 = baseline) and hypothetical lean-mass add-on from protein, sessions/week, and calorie
-          balance. Not a medical prediction.
-        </p>
+        <p className="text-[11px] text-gray-500 mb-2 leading-snug">Simple trend for motivation.</p>
         <ResponsiveContainer width="100%" height="78%">
           <ComposedChart margin={{ top: 4, right: 12, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
@@ -349,7 +337,7 @@ export default function ProgressPage() {
             <Legend />
             <Line
               yAxisId="left"
-              name="Strength index"
+              name="Strength"
               data={strengthSeries}
               type="monotone"
               dataKey="strengthIndex"
@@ -360,7 +348,7 @@ export default function ProgressPage() {
             />
             <Line
               yAxisId="right"
-              name="Lean mass add-on (kg)"
+              name="Lean mass (est.)"
               data={strengthSeries}
               type="monotone"
               dataKey="leanMassKg"
@@ -371,7 +359,7 @@ export default function ProgressPage() {
             />
           </ComposedChart>
         </ResponsiveContainer>
-        <p className="text-xs text-gray-500 mt-2 leading-relaxed">{strengthStory}</p>
+        <p className="text-xs text-gray-500 mt-2 leading-relaxed">{strengthNarrative()}</p>
       </div>
 
       <div className="glass-panel space-y-4 text-sm text-gray-300 leading-relaxed">

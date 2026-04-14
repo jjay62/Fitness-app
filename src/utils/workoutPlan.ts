@@ -77,6 +77,40 @@ export function estimateWorkoutPlanKcalBurn(
   return Math.round(met * w * h);
 }
 
+/** Running / walking preference: steps already reflect distance for those activities. */
+export function isRunWalkCardioPreference(pref: string | undefined): boolean {
+  const p = String(pref || '')
+    .trim()
+    .toLowerCase();
+  return p === 'run' || p === 'walk';
+}
+
+/**
+ * True when we should still add MET-based plan burn (gym, swim, etc.).
+ * False for run/walk users on locomotion-style cardio days — steps cover kcal instead.
+ */
+export function agendaMetAppliesForPlanBurn(
+  cardioPreference: string | undefined,
+  entry: PlanDay | undefined
+): boolean {
+  if (!entry) return true;
+  if (isGymType(entry.type)) return true;
+
+  const t = String(entry.type ?? '')
+    .trim()
+    .toLowerCase();
+  if (t === 'rest') return true;
+
+  if (!isRunWalkCardioPreference(cardioPreference)) return true;
+
+  const blob = `${t} ${formatPlanDetailText(entry.activity)} ${formatPlanDetailText(entry.details)}`.toLowerCase();
+  const looksLikeLocomotionCardio =
+    t.includes('cardio') || /\b(run|walk|jog|interval|stride|treadmill)\b/.test(blob);
+
+  if (!looksLikeLocomotionCardio) return true;
+  return false;
+}
+
 export function gymDaysFromPlan(plan: Record<string, PlanDay> | null | undefined): string[] {
   if (!plan) return [];
   return WEEKDAYS.filter((day) => plan[day] != null && isGymType(plan[day].type));

@@ -5,10 +5,6 @@ export type StrengthMusclePoint = {
   leanMassKg: number;
 };
 
-/**
- * Illustrative only: relative strength index + modeled lean-mass add-on (kg) vs time.
- * Not medical advice; real gains depend on training quality, sleep, genetics, etc.
- */
 export function buildStrengthMuscleSeries(
   horizonMonths: number,
   opts: {
@@ -53,13 +49,6 @@ export function buildStrengthMuscleSeries(
   return out;
 }
 
-export function strengthNarrative(goal: string, endStrength: number, endLean: number): string {
-  const g = String(goal || '').toLowerCase();
-  const dir =
-    g.includes('lose') && !g.includes('gain')
-      ? 'In a deficit, strength can still creep up for beginners; muscle gain is harder.'
-      : g.includes('gain') || g.includes('bulk')
-        ? 'A surplus supports faster strength and lean-mass curves in this model.'
-        : 'Maintenance tends to favor slow recomposition-style progress.';
-  return `${dir} By the end of the horizon the chart assumes about +${(endStrength - 100).toFixed(1)} index points and +${endLean.toFixed(2)} kg modeled lean tissue (illustrative).`;
+export function strengthNarrative(): string {
+  return 'For motivation only — not medical advice.';
 }

@@ -10,7 +10,12 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import UserNav from '../components/UserNav';
 import { ProfileDataError } from '../components/ProfileDataError';
-import { isGymType, estimateWorkoutPlanKcalBurn, formatPlanDetailText } from '../utils/workoutPlan';
+import {
+  isGymType,
+  estimateWorkoutPlanKcalBurn,
+  formatPlanDetailText,
+  agendaMetAppliesForPlanBurn,
+} from '../utils/workoutPlan';
 import { getAmsterdamWeekdayLong, getAmsterdamYmd } from '../utils/amsterdamTime';
 import { loadAgendaCompletions } from '../lib/agendaCompletionStorage';
 
@@ -108,15 +113,16 @@ export default function Dashboard() {
     const sHrs = Number(profile?.workout_duration) || 1;
     const skipped = !!(user?.id && loadAgendaCompletions(user.id)[getAmsterdamYmd()] === 'skipped');
     const est = estimateWorkoutPlanKcalBurn(entry, wKg, sHrs);
+    const metApplies = agendaMetAppliesForPlanBurn(profile?.cardio_preference, entry);
+    const planKcalBurned = skipped ? 0 : metApplies ? est : 0;
     return {
-      planKcalBurned: skipped ? 0 : est,
+      planKcalBurned,
       planSkipped: skipped,
+      stepsOnlyCardio: !skipped && !metApplies,
       todayWeekday,
       todayPlanEntry: entry,
-      weightKg: wKg,
-      sessionHours: sHrs,
     };
-  }, [user?.id, profile?.workout_plan, profile?.weight, profile?.workout_duration, agendaRev]);
+  }, [user?.id, profile?.workout_plan, profile?.weight, profile?.workout_duration, profile?.cardio_preference, agendaRev]);
 
   if (authLoading) {
     return (
@@ -156,7 +162,7 @@ export default function Dashboard() {
 
   const stepsKcalBurned = Math.floor(steps * 0.04);
 
-  const { planKcalBurned, planSkipped, todayWeekday, todayPlanEntry, weightKg, sessionHours } = burnDerived;
+  const { planKcalBurned, planSkipped, stepsOnlyCardio, todayWeekday, todayPlanEntry } = burnDerived;
   const todayIsGym = isGymType(todayPlanEntry?.type);
   const totalBurnedKcal = stepsKcalBurned + planKcalBurned;
   const burnGoalMax = Math.min(900, Math.max(300, Math.round(dailyGoals.kcal * 0.25)));
@@ -175,7 +181,6 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* Today's Agenda Card */}
       {profile?.workout_plan && (
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }}
@@ -232,7 +237,9 @@ export default function Dashboard() {
             color="#f97316"
             label="Burned"
             icon={<Zap size={20} />}
-            sublabel={planSkipped ? 'steps only' : 'steps + plan'}
+            sublabel={
+              planSkipped ? 'steps only' : stepsOnlyCardio ? 'steps (cardio)' : 'steps + plan'
+            }
           />
           <CircularProgress value={totalProtein} max={dailyGoals.protein} color="#8b5cf6" label="Protein" icon={<Dumbbell size={20} />} />
           <CircularProgress value={totalCarbs} max={dailyGoals.carbs} color="#f59e0b" label="Carbs" icon={<Wheat size={20} />} />
@@ -242,12 +249,6 @@ export default function Dashboard() {
           <p>
             <strong>Fiber:</strong> {totalFiber}g / {dailyGoals.fiber}g
           </p>
-          <p className="text-xs text-gray-500">
-            Burned ≈ {stepsKcalBurned} kcal steps
-            {planSkipped
-              ? ' · plan marked skipped (no session burn)'
-              : ` + ${planKcalBurned} kcal from today's plan (MET estimate, ${weightKg}kg × ${sessionHours}h).`}
-          </p>
         </div>
       </div>
 
@@ -256,11 +257,11 @@ export default function Dashboard() {
           <div className="min-w-0">
             <h3 className="flex items-center gap-2 text-emerald-400"><Activity size={20} /> Activity</h3>
             <p className="text-3xl font-bold my-2">{steps.toLocaleString()}</p>
-            <p className="text-sm text-gray-400">Steps today (Google Fit)</p>
+            <p className="text-sm text-gray-400">Steps today</p>
           </div>
           <button
             type="button"
-            title="Refresh steps from Google Fit"
+            title="Refresh steps"
             disabled={stepsRefreshing}
             onClick={async () => {
               setStepsRefreshing(true);

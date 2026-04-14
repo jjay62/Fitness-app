@@ -49,7 +49,6 @@ function SettingsContent() {
   }, [user, profile, authLoading, dataLoading, profileFetchError, router]);
 
   useEffect(() => {
-    // Sync local state once data is loaded from Supabase
     if (!dataLoading && profile && profile.is_setup_complete && !hasLoadedInitial) {
       setLocalProfile(profile);
       if (profile.workout_plan) {
@@ -61,21 +60,42 @@ function SettingsContent() {
 
   useEffect(() => {
     if (!user?.id) return;
+    if (searchParams.get('fit') === 'connected') return;
     void fetch('/api/auth/google-fit/status', { credentials: 'same-origin' })
       .then((r) => r.json() as Promise<{ connected?: boolean }>)
       .then((d) => setFitConnected(d.connected === true))
       .catch(() => setFitConnected(false));
-  }, [user?.id]);
+  }, [user?.id, searchParams]);
 
   useEffect(() => {
     const fit = searchParams.get('fit');
     const err = searchParams.get('fit_error');
     if (fit === 'connected') {
-      setFitOAuthMessage('Google Fit is connected. Steps sync from your Google account.');
-      setFitConnected(true);
-      router.replace('/settings');
-    } else if (err) {
-      setFitOAuthMessage(`Google Fit: ${err}`);
+      let cancelled = false;
+      void (async () => {
+        try {
+          const r = await fetch('/api/auth/google-fit/status?verify=1', { credentials: 'same-origin' });
+          const d = (await r.json()) as { connected?: boolean };
+          if (cancelled) return;
+          setFitConnected(d.connected === true);
+          setFitOAuthMessage(
+            d.connected ? 'Google Fit connected.' : 'Could not verify Google Fit. Try connecting again.'
+          );
+        } catch {
+          if (!cancelled) {
+            setFitConnected(false);
+            setFitOAuthMessage('Could not verify Google Fit. Try connecting again.');
+          }
+        } finally {
+          if (!cancelled) router.replace('/settings');
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }
+    if (err) {
+      setFitOAuthMessage('Could not connect. Try again.');
       router.replace('/settings');
     }
   }, [searchParams, router]);
@@ -170,7 +190,6 @@ function SettingsContent() {
         <button className="btn-primary py-2 px-6 rounded-full text-sm" onClick={handleSaveProfile}>Save Changes</button>
       </header>
 
-      {/* Biometrics Section */}
       <div className="glass-panel">
         <div className="flex items-center gap-2 mb-6 text-blue-400">
           <UserIcon size={20} />
@@ -210,11 +229,7 @@ function SettingsContent() {
           <h2 className="text-lg font-bold uppercase tracking-wider">Google Fit & steps</h2>
         </div>
         <p className="text-xs text-gray-500 mb-4 leading-relaxed">
-          Connect your Google account so the app can read today&apos;s step count via the Fitness API. Add{' '}
-          <code className="text-gray-400">google_fit_refresh_token</code> on <code className="text-gray-400">profiles</code> (see{' '}
-          <code className="text-gray-400">/api/steps</code> comment). Server needs <code className="text-gray-400">GOOGLE_CLIENT_ID</code> and{' '}
-          <code className="text-gray-400">GOOGLE_CLIENT_SECRET</code>; OAuth redirect:{' '}
-          <code className="text-gray-400">/api/auth/google-fit/callback</code>.
+          Sync step count from your Google account.
         </p>
         <div className="flex flex-wrap items-center gap-3 mb-4">
           <a href="/api/auth/google-fit/start" className="btn-primary py-2 px-4 rounded-full text-sm inline-block text-center">
@@ -266,7 +281,6 @@ function SettingsContent() {
         </div>
       </div>
 
-      {/* Training Agenda Section */}
       <div className="glass-panel">
         <div className="flex items-center gap-2 mb-6 text-emerald-400">
           <Dumbbell size={20} />
@@ -311,7 +325,6 @@ function SettingsContent() {
         </div>
       </div>
 
-      {/* Nutrition Plan Section */}
       <div className="glass-panel">
         <div className="flex items-center gap-2 mb-6 text-amber-400">
           <Activity size={20} />

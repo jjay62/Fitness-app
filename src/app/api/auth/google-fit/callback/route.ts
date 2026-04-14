@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createClient } from '@/utils/supabase/server';
 import { exchangeCodeForTokens } from '@/lib/googleFit/tokens';
+import { getGoogleFitRedirectUri } from '@/lib/googleFit/redirectUri';
 
 const STATE_COOKIE = 'google_fit_oauth_state';
 
@@ -34,7 +35,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL('/settings?fit_error=invalid_state', req.nextUrl.origin));
   }
 
-  const redirectUri = `${req.nextUrl.origin}/api/auth/google-fit/callback`;
+  const redirectUri = getGoogleFitRedirectUri(req);
 
   try {
     const tokens = await exchangeCodeForTokens(code, redirectUri);

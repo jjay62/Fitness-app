@@ -88,7 +88,7 @@ export default function LoginPage() {
       }
     } catch (err: any) {
       setError(err.message === 'Email not confirmed'
-        ? 'Please disable "Confirm Email" in your Supabase Auth settings to skip this step.'
+        ? 'Confirm your email from your inbox, then try signing in again.'
         : err.message);
     } finally {
       setLoading(false);

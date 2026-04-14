@@ -312,7 +312,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const { error } = await supabase.from('profiles').upsert({ user_id: userId, ...merged });
     if (error) {
       console.error('Profile Upsert Error:', error);
-      alert('Failed to save profile changes to database. Please check your Supabase schema.');
+      alert('Could not save changes. Please try again.');
       return;
     }
     const { strava_access_token: _t, google_fit_refresh_token: _g, ...withoutSecret } = merged as Record<string, unknown>;
@@ -420,7 +420,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       .select('id, weight_kg, logged_at');
     if (error) {
       console.error(error);
-      alert(error.message || 'Could not save weight. Create weight_entries table in Supabase (see AppContext comment).');
+      alert(error.message || 'Could not save weight. Please try again.');
       return;
     }
     if (data?.[0]) {
