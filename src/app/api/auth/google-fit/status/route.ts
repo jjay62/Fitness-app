@@ -16,10 +16,12 @@ export async function GET(req: NextRequest) {
     .from('profiles')
     .select('google_fit_refresh_token')
     .eq('user_id', user.id)
-    .maybeSingle();
+    .limit(1)
+    .single();
 
   if (error) {
-    return NextResponse.json({ connected: false, error: error.message }, { status: 500 });
+    console.error('Database error in status endpoint:', error);
+    return NextResponse.json({ connected: false }, { status: 200 });
   }
 
   const token = data?.google_fit_refresh_token && String(data.google_fit_refresh_token).trim();

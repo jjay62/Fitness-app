@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
 import { useRouter } from 'next/navigation';
-import { Activity, Flame, Droplet, Wheat, Dumbbell, Loader2, Sparkles, ChevronRight, Trash2, RefreshCw, Zap, CalendarDays } from 'lucide-react';
+import { Activity, Flame, Droplet, Wheat, Dumbbell, Loader2, Sparkles, ChevronRight, Trash2, RefreshCw, Zap, CalendarDays, Leaf } from 'lucide-react';
 import { gsap } from 'gsap';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
@@ -25,7 +25,6 @@ import {
   startOfAmsterdamDay,
   startOfNextAmsterdamDay,
 } from '../utils/amsterdamTime';
-import { loadAgendaCompletions } from '../lib/agendaCompletionStorage';
 
 const CircularProgress = ({
   value,
@@ -105,10 +104,19 @@ function weekYmdsFromAnchor(ymd: string): string[] {
 
 export default function Dashboard() {
   const { user, loading: authLoading } = useAuth();
-  const { profile, dailyGoals, dailyLogs, steps, dataLoading, profileFetchError, refetchUserData, removeFoodFromLog } = useApp();
+  const {
+    profile,
+    dailyGoals,
+    dailyLogs,
+    steps,
+    dataLoading,
+    profileFetchError,
+    refetchUserData,
+    removeFoodFromLog,
+    agendaCompletions,
+  } = useApp();
   const { locale, t } = useLocale();
   const [stepsRefreshing, setStepsRefreshing] = useState(false);
-  const [agendaRev, setAgendaRev] = useState(0);
   const [selectedYmd, setSelectedYmd] = useState(getAmsterdamYmd());
   const [selectedLogs, setSelectedLogs] = useState(dailyLogs);
   const [selectedSteps, setSelectedSteps] = useState(steps);
@@ -116,16 +124,6 @@ export default function Dashboard() {
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [weekKcalByYmd, setWeekKcalByYmd] = useState<Record<string, number>>({});
   const router = useRouter();
-
-  useEffect(() => {
-    const bump = () => setAgendaRev((r) => r + 1);
-    window.addEventListener('port62-agenda-completion', bump);
-    window.addEventListener('storage', bump);
-    return () => {
-      window.removeEventListener('port62-agenda-completion', bump);
-      window.removeEventListener('storage', bump);
-    };
-  }, []);
 
   useEffect(() => {
     if (!authLoading && !dataLoading && !profileFetchError) {
@@ -219,24 +217,26 @@ export default function Dashboard() {
     const entry = profile?.workout_plan?.[selectedWeekday];
     const wKg = Number(profile?.weight) || 70;
     const sHrs = Number(profile?.workout_duration) || 1;
-    const skipped = !!(user?.id && loadAgendaCompletions(user.id)[selectedYmd] === 'skipped');
+    const completionState = agendaCompletions[selectedYmd];
+    const completed = completionState === 'done';
+    const skipped = completionState === 'skipped';
     const est = estimateWorkoutPlanKcalBurn(entry, wKg, sHrs);
     const metApplies = agendaMetAppliesForPlanBurn(profile?.cardio_preference, entry);
-    const planKcalBurned = skipped ? 0 : metApplies ? est : 0;
+    const planKcalBurned = completed && metApplies ? est : 0;
     return {
       planKcalBurned,
       planSkipped: skipped,
-      stepsOnlyCardio: !skipped && !metApplies,
+      planCompleted: completed,
+      stepsOnlyCardio: completed && !metApplies,
       todayPlanEntry: entry,
     };
   }, [
-    user?.id,
     selectedYmd,
+    agendaCompletions,
     profile?.workout_plan,
     profile?.weight,
     profile?.workout_duration,
     profile?.cardio_preference,
-    agendaRev,
   ]);
 
   if (authLoading) {
@@ -277,7 +277,7 @@ export default function Dashboard() {
 
   const stepsKcalBurned = Math.floor(selectedSteps * 0.04);
 
-  const { planKcalBurned, planSkipped, stepsOnlyCardio, todayPlanEntry } = burnDerived;
+  const { planKcalBurned, planSkipped, planCompleted, stepsOnlyCardio, todayPlanEntry } = burnDerived;
   const selectedIsGym = isGymType(todayPlanEntry?.type);
   const selectedDateLabel = startOfAmsterdamDay(selectedYmd).toLocaleDateString(
     locale === 'nl' ? 'nl-NL' : 'en-US',
@@ -366,7 +366,7 @@ export default function Dashboard() {
 
       <div className="glass-panel">
         <h2 className="text-xl font-semibold mb-4">{t('dashboard.dailyGoals')}</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-y-6 gap-x-2 place-items-center">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-y-6 gap-x-2 place-items-center">
           <CircularProgress
             value={totalKcal}
             max={dailyGoals.kcal}
@@ -383,7 +383,9 @@ export default function Dashboard() {
             sublabel={
               planSkipped
                 ? t('dashboard.subStepsOnly')
-                : stepsOnlyCardio
+                : !planCompleted
+                  ? t('dashboard.subStepsOnly')
+                  : stepsOnlyCardio
                   ? t('dashboard.subStepsCardio')
                   : t('dashboard.subStepsPlan')
             }
@@ -409,11 +411,13 @@ export default function Dashboard() {
             label={t('dashboard.fats')}
             icon={<Droplet size={20} />}
           />
-        </div>
-        <div className="mt-4 pt-4 border-t border-[color:var(--glass-border)] text-sm space-y-1">
-          <p>
-            <strong>{t('dashboard.fiber')}:</strong> {totalFiber}g / {dailyGoals.fiber}g
-          </p>
+          <CircularProgress
+            value={totalFiber}
+            max={dailyGoals.fiber}
+            color="#22c55e"
+            label={t('dashboard.fiber')}
+            icon={<Leaf size={20} />}
+          />
         </div>
       </div>
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { useAuth } from '@/context/AuthContext';
 import { useApp } from '@/context/AppContext';
@@ -31,10 +31,8 @@ import { parseAgendaDetails } from '@/utils/agendaDetails';
 import { buildAgendaImportPrompt } from '@/utils/aiPrompts';
 import { amsterdamYmdForWeekdayName, getAmsterdamWeekdayLong } from '@/utils/amsterdamTime';
 import {
-  loadAgendaCompletions,
-  setAgendaCompletion,
   type AgendaCompletionStatus,
-} from '@/lib/agendaCompletionStorage';
+} from '@/context/AppContext';
 
 const ALLOWED_AGENDA_FILE_TYPES = new Set(['application/pdf', 'image/png', 'image/jpeg']);
 
@@ -70,41 +68,24 @@ function fileToBase64(file: File): Promise<string> {
 
 export default function AgendaPage() {
   const { user, loading: authLoading } = useAuth();
-  const { profile, geminiApiKey, updateProfile, dataLoading, profileFetchError, refetchUserData } = useApp();
+  const {
+    profile,
+    geminiApiKey,
+    updateProfile,
+    dataLoading,
+    profileFetchError,
+    refetchUserData,
+    agendaCompletions,
+    setAgendaCompletion,
+  } = useApp();
   const router = useRouter();
 
   const [detailsDay, setDetailsDay] = useState<Weekday | null>(null);
-  const [completions, setCompletions] = useState<Record<string, AgendaCompletionStatus>>({});
   const [customAgendaText, setCustomAgendaText] = useState('');
   const [customAgendaFiles, setCustomAgendaFiles] = useState<File[]>([]);
   const [importingAgenda, setImportingAgenda] = useState(false);
 
   const todayAmsterdam = getAmsterdamWeekdayLong();
-
-  const reloadCompletions = useCallback(() => {
-    if (!user?.id) {
-      setCompletions({});
-      return;
-    }
-    setCompletions(loadAgendaCompletions(user.id));
-  }, [user?.id]);
-
-  useEffect(() => {
-    reloadCompletions();
-  }, [reloadCompletions]);
-
-  useEffect(() => {
-    const onStorage = (e: StorageEvent) => {
-      if (e.key?.startsWith('port62_agenda_v1_')) reloadCompletions();
-    };
-    const onLocal = () => reloadCompletions();
-    window.addEventListener('storage', onStorage);
-    window.addEventListener('port62-agenda-completion', onLocal);
-    return () => {
-      window.removeEventListener('storage', onStorage);
-      window.removeEventListener('port62-agenda-completion', onLocal);
-    };
-  }, [reloadCompletions]);
 
   useEffect(() => {
     if (!authLoading && !dataLoading && !profileFetchError) {
@@ -116,12 +97,12 @@ export default function AgendaPage() {
     }
   }, [user, profile, authLoading, dataLoading, profileFetchError, router]);
 
-  const markCompletion = (day: Weekday, status: AgendaCompletionStatus) => {
+  const markCompletion = async (day: Weekday, status: AgendaCompletionStatus) => {
     if (!user?.id) return;
     const key = amsterdamYmdForWeekdayName(day);
-    const cur = completions[key];
+    const cur = agendaCompletions[key];
     const next = cur === status ? null : status;
-    setCompletions(setAgendaCompletion(user.id, key, next));
+    await setAgendaCompletion(key, next);
   };
 
   const handleAgendaFileSelection: React.ChangeEventHandler<HTMLInputElement> = (e) => {
@@ -318,7 +299,7 @@ export default function AgendaPage() {
           const isToday = day === todayAmsterdam;
           const isGym = isGymType(plan?.type);
           const dateKey = amsterdamYmdForWeekdayName(day);
-          const doneState = completions[dateKey];
+          const doneState = agendaCompletions[dateKey];
 
           return (
             <motion.div

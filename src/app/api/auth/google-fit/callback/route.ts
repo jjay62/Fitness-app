@@ -77,7 +77,8 @@ export async function GET(req: NextRequest) {
         .from('profiles')
         .select('google_fit_refresh_token')
         .eq('user_id', user.id)
-        .maybeSingle();
+        .limit(1)
+        .single();
 
       if (!row?.google_fit_refresh_token) {
         return NextResponse.redirect(
@@ -89,6 +90,9 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // Add delay to ensure token is fully committed before redirect
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
     return NextResponse.redirect(new URL('/settings?fit=connected', req.nextUrl.origin));
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'exchange_failed';

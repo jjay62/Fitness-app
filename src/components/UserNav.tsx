@@ -4,7 +4,7 @@ import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
 import { useLocale } from '../context/LocaleContext';
-import { LogOut, User as UserIcon } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function UserNav() {
@@ -17,6 +17,12 @@ export default function UserNav() {
   const metadata = user.user_metadata || {};
   const displayName = profile?.username || metadata.username || metadata.full_name || metadata.name || t('userNav.newUser');
   const displayAvatar = profile?.avatar_url || metadata.avatar_url || metadata.picture;
+  const initials = String(displayName)
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join('') || 'U';
 
   return (
     <div className="flex justify-between items-center mb-6">
@@ -25,7 +31,7 @@ export default function UserNav() {
           {displayAvatar ? (
             <img src={displayAvatar} alt="Profile" className="w-full h-full object-cover" />
           ) : (
-            <UserIcon size={24} className="text-gray-500" />
+            <span className="text-sm font-bold text-blue-300">{initials}</span>
           )}
         </div>
         <div>

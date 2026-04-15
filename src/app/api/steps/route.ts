@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
       .select('google_fit_refresh_token')
       .eq('user_id', user.id)
       .limit(1)
-      .maybeSingle();
+      .single();
 
     if (pErr) {
       return NextResponse.json({ error: pErr.message }, { status: 500 });

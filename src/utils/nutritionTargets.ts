@@ -1,4 +1,5 @@
 import type { Profile } from '../context/AppContext';
+import { GoogleGenAI } from '@google/genai';
 
 export type DailyTargets = {
   kcal: number;
@@ -105,4 +106,94 @@ export function nutritionRulesForPrompt(profile: Partial<Profile>): string {
     '8) Carbs: remaining calories',
     '9) Fiber: 14g per 1000 kcal',
   ].join('\n');
+}
+
+export function buildNutritionPrompt(profile: {
+  gender: string;
+  age: number;
+  height: number;
+  weight: number;
+  bodyFat: number;
+  goal: string;
+}): string {
+  const leanMass = profile.weight * (1 - profile.bodyFat / 100);
+
+  return `
+Act as a PhD-level Sports Nutritionist. Calculate precise daily nutritional targets
+for this specific individual. Every number must be calculated from their exact data.
+
+User Profile (use these exact values — do not use defaults or assumptions):
+- Gender: ${profile.gender}
+- Age: ${profile.age} years old
+- Height: ${profile.height} cm
+- Total weight: ${profile.weight} kg
+- Body fat: ${profile.bodyFat}%
+- Lean body mass: ${leanMass.toFixed(1)} kg
+- Goal: ${profile.goal}
+
+Step 1 — BMR (Mifflin-St Jeor):
+${profile.gender === 'male'
+  ? `Male: BMR = (10 × ${profile.weight}) + (6.25 × ${profile.height}) - (5 × ${profile.age}) + 5`
+  : `Female: BMR = (10 × ${profile.weight}) + (6.25 × ${profile.height}) - (5 × ${profile.age}) - 161`
+}
+
+Step 2 — TDEE:
+Moderately active (3x gym + daily walking) = BMR × 1.465
+
+Step 3 — Caloric adjustment by goal:
+- lose: TDEE - 500
+- maintain: TDEE exactly
+- gain: TDEE + 250
+- lose_gain (recomp): TDEE - 500
+
+Step 4 — Macros:
+- Protein: ${leanMass.toFixed(1)} kg × 2.2 = Xg protein
+- Fats: 26% of total calories ÷ 9
+- Carbs: remaining calories after protein and fat ÷ 4
+- Fiber: 14g per 1000 kcal
+
+Output ONLY this JSON (no markdown, no explanation, no extra text):
+{"kcal": number, "protein": number, "carbs": number, "fats": number, "fiber": number}
+  `.trim();
+}
+
+function parseResponseJson(text: string): DailyTargets {
+  const sanitized = text.replace(/```json|```/g, '').trim();
+  const parsed = JSON.parse(sanitized) as Partial<DailyTargets>;
+  return {
+    kcal: Math.round(Number(parsed.kcal) || 0),
+    protein: Math.round(Number(parsed.protein) || 0),
+    carbs: Math.round(Number(parsed.carbs) || 0),
+    fats: Math.round(Number(parsed.fats) || 0),
+    fiber: Math.round(Number(parsed.fiber) || 0),
+  };
+}
+
+export async function generateNutritionTargetsWithGemini(
+  apiKey: string,
+  profile: Partial<Profile>
+): Promise<DailyTargets> {
+  const gender = String(profile.gender || 'male');
+  const age = Number(profile.age || 0);
+  const height = Number(profile.height || 0);
+  const weight = Number(profile.weight || 0);
+  const bodyFat = Number(profile.body_fat_percentage || 0);
+  const goal = String(profile.goal || 'maintain');
+
+  console.log('Nutrition prompt profile:', { gender, age, height, weight, bodyFat, goal });
+
+  const ai = new GoogleGenAI({ apiKey, apiVersion: 'v1beta' });
+  const prompt = buildNutritionPrompt({
+    gender,
+    age,
+    height,
+    weight,
+    bodyFat,
+    goal,
+  });
+  const result = await ai.models.generateContent({
+    model: 'gemini-2.5-flash-lite',
+    contents: [{ text: prompt }],
+  });
+  return parseResponseJson(result.text || '');
 }

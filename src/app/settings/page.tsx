@@ -16,8 +16,9 @@ import { AppearanceControls } from '../../components/AppearanceControls';
 import { ProfileDataError } from '../../components/ProfileDataError';
 import { useLocale } from '../../context/LocaleContext';
 import { WEEKDAYS, gymDaysFromPlan, mergeWorkoutPlanWithGymSelection } from '../../utils/workoutPlan';
-import { computeDailyTargets } from '../../utils/nutritionTargets';
+import { generateNutritionTargetsWithGemini } from '../../utils/nutritionTargets';
 import { buildWorkoutAgendaPrompt } from '../../utils/aiPrompts';
+import { supabase } from '@/lib/supabase';
 import {
   DEFAULT_NOTIFICATION_PREFS,
   readNotificationPrefs,
@@ -36,7 +37,7 @@ const CARDIO_OPTIONS = [
 
 function SettingsContent() {
   const { user, loading: authLoading } = useAuth();
-  const { geminiApiKey, profile, updateProfile, updateProfileAndGoals, dataLoading, profileFetchError, refetchUserData } = useApp();
+  const { geminiApiKey, profile, updateProfile, dataLoading, profileFetchError, refetchUserData } = useApp();
   const { t } = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -48,6 +49,7 @@ function SettingsContent() {
   const [hasLoadedInitial, setHasLoadedInitial] = useState(false);
   const [fitConnected, setFitConnected] = useState<boolean | null>(null);
   const [fitOAuthMessage, setFitOAuthMessage] = useState<string | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [notificationPrefs, setNotificationPrefs] = useState<NotificationPrefs>(DEFAULT_NOTIFICATION_PREFS);
 
   useEffect(() => {
@@ -79,9 +81,17 @@ function SettingsContent() {
     if (!user?.id) return;
     if (searchParams.get('fit') === 'connected') return;
     void fetch('/api/auth/google-fit/status', { credentials: 'same-origin' })
-      .then((r) => r.json() as Promise<{ connected?: boolean }>)
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`Status ${r.status}`);
+        const d = await r.json() as { connected?: boolean; error?: string };
+        if (d.error) throw new Error(d.error);
+        return d;
+      })
       .then((d) => setFitConnected(d.connected === true))
-      .catch(() => setFitConnected(false));
+      .catch((error) => {
+        console.error('Google Fit status check failed:', error);
+        setFitConnected(false);
+      });
   }, [user?.id, searchParams]);
 
   useEffect(() => {
@@ -91,15 +101,23 @@ function SettingsContent() {
       let cancelled = false;
       void (async () => {
         try {
-          const r = await fetch('/api/auth/google-fit/status?verify=1', { credentials: 'same-origin' });
-          const d = (await r.json()) as { connected?: boolean };
+          const r = await fetch('/api/auth/google-fit/status', { credentials: 'same-origin' });
+          if (!r.ok) throw new Error(`Status ${r.status}`);
+          const d = (await r.json()) as { connected?: boolean; error?: string };
           if (cancelled) return;
           setFitConnected(d.connected === true);
-          setFitOAuthMessage(d.connected ? t('settings.fitConnectedMsg') : t('settings.fitVerifyFail'));
-        } catch {
+          if (d.connected) {
+            setFitOAuthMessage('Google Fit connected successfully.');
+          } else {
+            // Don't show error message for successful OAuth but no connection yet
+            // This can happen due to timing issues
+            setFitOAuthMessage(null);
+          }
+        } catch (error) {
           if (!cancelled) {
+            console.error('Google Fit verification failed:', error);
             setFitConnected(false);
-            setFitOAuthMessage(t('settings.fitVerifyFail'));
+            setFitOAuthMessage(t('settings.fitOAuthFail'));
           }
         } finally {
           if (!cancelled) router.replace('/settings');
@@ -137,12 +155,66 @@ function SettingsContent() {
     );
   }
 
+  const generateWorkoutPlanForProfile = async (sourceProfile: any, days: string[]) => {
+    if (!geminiApiKey) throw new Error('missing_gemini_key');
+    if (days.length === 0) throw new Error('missing_days');
+    const ai = new GoogleGenAI({ apiKey: geminiApiKey, apiVersion: 'v1beta' });
+    const prompt = buildWorkoutAgendaPrompt({
+      goal: sourceProfile.goal,
+      selectedDays: days,
+      durationHours: Number(sourceProfile.workout_duration) || 1,
+      cardioPreference: sourceProfile.cardio_preference || 'run',
+    });
+    const result = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-lite',
+      contents: [{ text: prompt }],
+    });
+    const raw = (result.text || '').replace(/```json|```/g, '').trim();
+    return JSON.parse(raw) as Record<string, { type?: string; activity?: string; details?: unknown }>;
+  };
+
   const handleSaveProfile = async () => {
-    const nextPlan = mergeWorkoutPlanWithGymSelection(selectedDays, localProfile.workout_plan);
-    const nextProfile = { ...localProfile, workout_plan: nextPlan };
-    setLocalProfile(nextProfile);
-    await updateProfile(nextProfile);
-    alert(t('settings.saved'));
+    if (!user?.id) return;
+    if (!geminiApiKey) return alert(t('settings.aiKeyMissing'));
+    if (selectedDays.length === 0) return alert(t('settings.selectGymDays'));
+
+    try {
+      const nextPlan = mergeWorkoutPlanWithGymSelection(selectedDays, localProfile.workout_plan);
+      const nextProfile = { ...localProfile, workout_plan: nextPlan };
+
+      const { data: savedProfileRows, error: profileError } = await supabase
+        .from('profiles')
+        .upsert({ user_id: user.id, ...nextProfile })
+        .select('*')
+        .limit(1);
+      if (profileError) throw profileError;
+      const savedProfile = savedProfileRows?.[0] || nextProfile;
+
+      const goals = await generateNutritionTargetsWithGemini(geminiApiKey, savedProfile);
+      const { error: goalsDeleteError } = await supabase.from('daily_goals').delete().eq('user_id', user.id);
+      if (goalsDeleteError) throw goalsDeleteError;
+      const { error: goalsInsertError } = await supabase
+        .from('daily_goals')
+        .insert({ user_id: user.id, ...goals });
+      if (goalsInsertError) throw goalsInsertError;
+
+      const generatedPlan = await generateWorkoutPlanForProfile(savedProfile, selectedDays);
+      const finalProfile = { ...savedProfile, workout_plan: generatedPlan };
+      const { error: finalProfileError } = await supabase
+        .from('profiles')
+        .upsert({ user_id: user.id, ...finalProfile })
+        .select('user_id')
+        .limit(1);
+      if (finalProfileError) throw finalProfileError;
+
+      setLocalProfile(finalProfile);
+      setSelectedDays(gymDaysFromPlan(generatedPlan));
+      await refetchUserData();
+      alert(t('settings.saved'));
+    } catch (error) {
+      console.error(error);
+      alert(t('settings.genFailed'));
+    }
   };
 
   const toggleDay = (day: string) => {
@@ -155,10 +227,18 @@ function SettingsContent() {
   };
 
   const generateDietPlan = async () => {
+    if (!user?.id) return;
+    if (!geminiApiKey) return alert(t('settings.aiKeyMissing'));
     setGeneratingDiet(true);
     try {
-      const goals = computeDailyTargets(localProfile);
-      await updateProfileAndGoals(localProfile, goals);
+      const goals = await generateNutritionTargetsWithGemini(geminiApiKey, localProfile);
+      const { error: goalsDeleteError } = await supabase.from('daily_goals').delete().eq('user_id', user.id);
+      if (goalsDeleteError) throw goalsDeleteError;
+      const { error: goalsInsertError } = await supabase
+        .from('daily_goals')
+        .insert({ user_id: user.id, ...goals });
+      if (goalsInsertError) throw goalsInsertError;
+      await refetchUserData();
       alert(t('settings.dietUpdated'));
     } catch (e) {
       alert(t('settings.genFailed'));
@@ -185,11 +265,54 @@ function SettingsContent() {
       await updateProfile(merged);
       setLocalProfile(merged);
       setSelectedDays(gymDaysFromPlan(plan));
+      await refetchUserData();
       alert(t('settings.workoutUpdated'));
     } catch (e) {
       alert(t('settings.genFailed'));
     }
     finally { setGeneratingWorkout(false); }
+  };
+
+  const handleAvatarUpload: React.ChangeEventHandler<HTMLInputElement> = async (event) => {
+    if (!user?.id) return;
+    const file = event.target.files?.[0];
+    event.currentTarget.value = '';
+    if (!file) return;
+
+    setUploadingAvatar(true);
+    try {
+      const ext = file.name.split('.').pop() || 'jpg';
+      const filePath = `${user.id}-${Date.now()}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from('Avatars')
+        .upload(filePath, file, { upsert: true });
+      
+      if (uploadError) {
+        // Handle specific RLS policy violation
+        if (uploadError.message?.includes('row-level security policy')) {
+          throw new Error('Storage permission denied. Please check Supabase Storage RLS policies for the Avatars bucket.');
+        }
+        throw uploadError;
+      }
+
+      const { data } = supabase.storage.from('Avatars').getPublicUrl(filePath);
+      const avatarUrl = data.publicUrl;
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: avatarUrl })
+        .eq('user_id', user.id);
+      if (updateError) throw updateError;
+
+      const nextProfile = { ...localProfile, avatar_url: avatarUrl };
+      setLocalProfile(nextProfile);
+      await refetchUserData();
+    } catch (error) {
+      console.error('Avatar upload failed:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Upload failed';
+      alert(errorMessage);
+    } finally {
+      setUploadingAvatar(false);
+    }
   };
 
   const setNotificationFlag = (key: keyof NotificationPrefs, value: boolean) => {
@@ -231,6 +354,21 @@ function SettingsContent() {
         <div className="flex items-center gap-2 mb-6 text-blue-400">
           <UserIcon size={20} />
           <h2 className="text-lg font-bold uppercase tracking-wider">{t('settings.biometrics')}</h2>
+        </div>
+        <div className="mb-6 rounded-xl border border-white/10 bg-white/5 p-3">
+          <label className="text-[10px] text-muted uppercase font-bold block mb-2">
+            Profile photo
+          </label>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleAvatarUpload}
+            disabled={uploadingAvatar}
+            className="block w-full text-xs text-gray-300 file:mr-3 file:rounded-lg file:border-0 file:bg-white/15 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-white hover:file:bg-white/20 disabled:opacity-60"
+          />
+          <p className="text-[10px] text-muted mt-2">
+            {uploadingAvatar ? 'Uploading...' : 'Upload an image to update your avatar.'}
+          </p>
         </div>
         <div className="grid grid-cols-2 gap-6">
           <div className="space-y-4">
@@ -301,31 +439,6 @@ function SettingsContent() {
             </button>
           </p>
         )}
-        <div className="space-y-4">
-          <div>
-            <label className="text-[10px] text-muted uppercase font-bold">{t('settings.heightForSteps')}</label>
-            <input
-              type="number"
-              step="0.001"
-              min="0.5"
-              max="2.72"
-              className="input-field mt-1"
-              placeholder={`Default: ${(Number(localProfile.height) || 175) / 100} m from height (cm)`}
-              value={
-                localProfile.height_m != null && Number.isFinite(Number(localProfile.height_m))
-                  ? String(localProfile.height_m)
-                  : ''
-              }
-              onChange={(e) => {
-                const raw = e.target.value;
-                setLocalProfile({
-                  ...localProfile,
-                  height_m: raw === '' ? null : parseFloat(raw),
-                });
-              }}
-            />
-          </div>
-        </div>
       </div>
 
       <div className="glass-panel">

@@ -63,12 +63,19 @@ export default function LoginPage() {
             const fileExt = avatar.name.split('.').pop();
             const fileName = `${authData.user.id}.${fileExt}`;
             const { error: uploadError } = await supabase.storage
-              .from('avatars')
+              .from('Avatars')
               .upload(fileName, avatar);
 
-            if (!uploadError) {
+            if (uploadError) {
+              // Handle specific RLS policy violation
+              if (uploadError.message?.includes('row-level security policy')) {
+                console.error('Storage permission denied during signup:', uploadError);
+              } else {
+                console.error('Avatar upload failed during signup:', uploadError);
+              }
+            } else {
               const { data: { publicUrl } } = supabase.storage
-                .from('avatars')
+                .from('Avatars')
                 .getPublicUrl(fileName);
               avatarUrl = publicUrl;
             }

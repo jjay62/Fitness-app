@@ -31,6 +31,8 @@ export interface Profile {
   height_m?: number | null;
 }
 
+export type AgendaCompletionStatus = 'done' | 'skipped';
+
 interface DailyGoals {
   kcal: number;
   protein: number;
@@ -61,7 +63,7 @@ interface AppContextType {
   geminiApiKey: string;
   saveGeminiKey: (key: string) => void;
   profile: Profile;
-  updateProfileAndGoals: (newProfile: Profile, newGoals: DailyGoals) => void;
+  updateProfileAndGoals: (newProfile: Profile, newGoals: DailyGoals) => Promise<void>;
   dailyGoals: DailyGoals;
   foodLibrary: FoodItem[];
   addFoodToLibrary: (foodItem: FoodItem) => void;
@@ -76,6 +78,8 @@ interface AppContextType {
   steps: number;
   refreshFitSteps: () => Promise<void>;
   updateProfile: (updates: Partial<Profile>) => Promise<void>;
+  agendaCompletions: Record<string, AgendaCompletionStatus>;
+  setAgendaCompletion: (dateKey: string, status: AgendaCompletionStatus | null) => Promise<void>;
   dataLoading: boolean;
   profileFetchError: string | null;
   refetchUserData: () => Promise<void>;
@@ -164,6 +168,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [recentMealLogs7d, setRecentMealLogs7d] = useState<FoodItem[]>([]);
   const [weightEntries, setWeightEntries] = useState<WeightEntry[]>([]);
   const [steps, setSteps] = useState(0);
+  const [agendaCompletions, setAgendaCompletions] = useState<Record<string, AgendaCompletionStatus>>({});
   const [dataLoading, setDataLoading] = useState(true);
   const [profileFetchError, setProfileFetchError] = useState<string | null>(null);
 
@@ -255,6 +260,25 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setWeightEntries((data ?? []) as WeightEntry[]);
   };
 
+  const fetchAgendaCompletionsForUser = async (uid: string) => {
+    const { data, error } = await supabase
+      .from('agenda_completions')
+      .select('ymd, status')
+      .eq('user_id', uid);
+    if (error) {
+      console.warn('agenda_completions fetch:', error.message);
+      setAgendaCompletions({});
+      return;
+    }
+    const next: Record<string, AgendaCompletionStatus> = {};
+    for (const row of data ?? []) {
+      const ymd = typeof row.ymd === 'string' ? row.ymd : '';
+      const status = row.status === 'done' || row.status === 'skipped' ? row.status : null;
+      if (ymd && status) next[ymd] = status;
+    }
+    setAgendaCompletions(next);
+  };
+
   const loadUserData = useCallback(
     async (opts?: { resetProfile?: boolean }) => {
       const uid = user?.id;
@@ -272,6 +296,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           fetchDailyLogsForUser(uid),
           fetchRecentMealLogs7dForUser(uid),
           fetchWeightEntriesForUser(uid),
+          fetchAgendaCompletionsForUser(uid),
         ]);
       } catch (error) {
         console.error('Initial fetch error:', error);
@@ -300,6 +325,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         setProfileFetchError(null);
         setWeightEntries([]);
         setRecentMealLogs7d([]);
+        setAgendaCompletions({});
       }
       return;
     }
@@ -310,27 +336,91 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const updateProfile = async (updates: Partial<Profile>) => {
     if (!userId) return;
     const merged = { ...profile, ...updates };
-    const { error } = await supabase.from('profiles').upsert({ user_id: userId, ...merged });
+    const { data, error } = await supabase
+      .from('profiles')
+      .upsert({ user_id: userId, ...merged })
+      .select('*')
+      .limit(1);
     if (error) {
       console.error('Profile Upsert Error:', error);
       alert('Could not save changes. Please try again.');
       return;
     }
-    const { strava_access_token: _t, google_fit_refresh_token: _g, ...withoutSecret } = merged as Record<string, unknown>;
-    setProfile(withoutSecret as unknown as Profile);
+    const row = (data?.[0] ?? merged) as Record<string, unknown> & { gemini_api_key?: string };
+    const normalized = normalizeProfileFromRow(row);
+    setProfile(normalized);
+    if (normalized.gemini_api_key) setGeminiApiKey(normalized.gemini_api_key);
   };
 
   const updateProfileAndGoals = async (newProfile: Profile, newGoals: DailyGoals) => {
     if (!userId) return;
-    setProfile(newProfile);
-    setDailyGoals(newGoals);
-
-    const { error: pError } = await supabase.from('profiles').upsert({ user_id: userId, ...newProfile });
-    const { error: gError } = await supabase.from('daily_goals').insert({ user_id: userId, ...newGoals });
-
-    if (pError || gError) {
-      console.error('Save Error:', pError || gError);
+    const { data: profileRows, error: pError } = await supabase
+      .from('profiles')
+      .upsert({ user_id: userId, ...newProfile })
+      .select('*')
+      .limit(1);
+    if (pError) {
+      console.error('Save Error:', pError);
       alert('AI values generated but failed to save to database.');
+      return;
+    }
+
+    const { error: gDeleteError } = await supabase.from('daily_goals').delete().eq('user_id', userId);
+    if (gDeleteError) {
+      console.error('daily_goals delete error:', gDeleteError);
+      alert('AI values generated but failed to save to database.');
+      return;
+    }
+
+    const { data: goalsRows, error: gInsertError } = await supabase
+      .from('daily_goals')
+      .insert({ user_id: userId, ...newGoals })
+      .select('*')
+      .limit(1);
+    if (gInsertError) {
+      console.error('daily_goals insert error:', gInsertError);
+      alert('AI values generated but failed to save to database.');
+      return;
+    }
+
+    const normalized = normalizeProfileFromRow(
+      (profileRows?.[0] ?? { ...newProfile }) as Record<string, unknown> & { gemini_api_key?: string }
+    );
+    setProfile(normalized);
+    setDailyGoals((goalsRows?.[0] ?? newGoals) as DailyGoals);
+  };
+
+  const setAgendaCompletion = async (dateKey: string, status: AgendaCompletionStatus | null) => {
+    if (!userId || !dateKey) return;
+    if (status === null) {
+      const { error } = await supabase
+        .from('agenda_completions')
+        .delete()
+        .eq('user_id', userId)
+        .eq('ymd', dateKey);
+      if (error) {
+        console.error('agenda completion delete:', error);
+        return;
+      }
+      setAgendaCompletions((prev) => {
+        const next = { ...prev };
+        delete next[dateKey];
+        return next;
+      });
+    } else {
+      const { error } = await supabase
+        .from('agenda_completions')
+        .upsert({ user_id: userId, ymd: dateKey, status })
+        .select('ymd, status')
+        .limit(1);
+      if (error) {
+        console.error('agenda completion upsert:', error);
+        return;
+      }
+      setAgendaCompletions((prev) => ({ ...prev, [dateKey]: status }));
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('port62-agenda-completion'));
     }
   };
 
@@ -478,6 +568,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         dailyLogs,
         recentMealLogs7d,
         currentSteps: steps,
+        agendaCompletions,
       });
     };
 
@@ -493,7 +584,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onFocus);
     };
-  }, [userId, authLoading, dataLoading, profile, dailyGoals, dailyLogs, recentMealLogs7d, steps]);
+  }, [userId, authLoading, dataLoading, profile, dailyGoals, dailyLogs, recentMealLogs7d, steps, agendaCompletions]);
 
   const amsterdamDayRef = useRef(getAmsterdamYmd());
 
@@ -578,6 +669,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         steps,
         refreshFitSteps,
         updateProfile,
+        agendaCompletions,
+        setAgendaCompletion,
         dataLoading,
         profileFetchError,
         refetchUserData,

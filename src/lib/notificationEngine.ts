@@ -1,5 +1,4 @@
 import type { FoodItem, Profile } from '@/context/AppContext';
-import { loadAgendaCompletions } from '@/lib/agendaCompletionStorage';
 import { readNotificationPrefs } from '@/lib/notificationPrefs';
 import { formatPlanDetailText, isGymType } from '@/utils/workoutPlan';
 
@@ -18,6 +17,7 @@ type EngineArgs = {
   dailyLogs: FoodItem[];
   recentMealLogs7d: FoodItem[];
   currentSteps: number;
+  agendaCompletions: Record<string, 'done' | 'skipped'>;
 };
 
 type EngineState = {
@@ -162,7 +162,7 @@ async function fetchStepsForDate(ymd: string): Promise<number> {
 }
 
 export async function evaluateAndSendNotifications(args: EngineArgs): Promise<void> {
-  const { userId, profile, dailyGoals, dailyLogs, recentMealLogs7d, currentSteps } = args;
+  const { userId, profile, dailyGoals, dailyLogs, recentMealLogs7d, currentSteps, agendaCompletions } = args;
   if (!userId || typeof window === 'undefined') return;
 
   const prefs = readNotificationPrefs(userId);
@@ -207,13 +207,12 @@ export async function evaluateAndSendNotifications(args: EngineArgs): Promise<vo
         d.setDate(now.getDate() - (6 - i));
         return localYmd(d);
       });
-      const completions = loadAgendaCompletions(userId);
       const plannedGym = dayYmds.filter((day) => {
         const wd = weekdayFromYmd(day);
         const entry = profile?.workout_plan?.[wd];
         return isGymType(entry?.type);
       }).length;
-      const completedGym = dayYmds.filter((day) => completions[day] === 'done').length;
+      const completedGym = dayYmds.filter((day) => agendaCompletions[day] === 'done').length;
 
       const kcalByDay: Record<string, number> = {};
       for (const day of dayYmds) kcalByDay[day] = 0;
@@ -264,8 +263,7 @@ export async function evaluateAndSendNotifications(args: EngineArgs): Promise<vo
 
   // Workout reminder on gym days only.
   if (prefs.workoutReminder && inTriggerWindow(now, 17) && isGymType(planEntry?.type)) {
-    const completions = loadAgendaCompletions(userId);
-    const status = completions[ymd];
+    const status = agendaCompletions[ymd];
     if (status !== 'done' && status !== 'skipped') {
       const sessionTitle = formatPlanDetailText(planEntry?.activity) || 'gym session';
       await maybeSend(
