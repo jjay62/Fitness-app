@@ -11,6 +11,7 @@ export const messages: Record<Locale, MessageTree> = {
       tracker: 'Tracker',
       suggest: 'Suggest',
       library: 'Library',
+      youtube: 'YouTube',
       settings: 'Settings',
     },
     appearance: {
@@ -182,6 +183,7 @@ export const messages: Record<Locale, MessageTree> = {
       tracker: 'Tracker',
       suggest: 'Tips',
       library: 'Bibliotheek',
+      youtube: 'YouTube',
       settings: 'Instellingen',
     },
     appearance: {
