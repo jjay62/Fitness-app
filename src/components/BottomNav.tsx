@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Camera, Book, Settings, Sparkles, Calendar, TrendingUp } from 'lucide-react';
+import { LayoutDashboard, Camera, Book, Settings, Sparkles, Calendar, TrendingUp, Video } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useLocale } from '../context/LocaleContext';
 
@@ -17,6 +17,7 @@ export default function BottomNav() {
     { nameKey: 'nav.tracker' as const, path: '/tracker', icon: Camera },
     { nameKey: 'nav.suggest' as const, path: '/suggestions', icon: Sparkles },
     { nameKey: 'nav.library' as const, path: '/library', icon: Book },
+    { nameKey: 'nav.youtube' as const, path: '/youtube', icon: Video },
     { nameKey: 'nav.settings' as const, path: '/settings', icon: Settings },
   ];
 
